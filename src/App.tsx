@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import telaInicial from "../fotos/tela_inicial.png";
+import "./App.css";
 
 type Tela = "menu" | "slots" | "criar";
 
@@ -17,9 +19,7 @@ function App() {
   const [temSave, setTemSave] = useState(false);
 
   useEffect(() => {
-    const saves = [1, 2, 3, 4].some((i) =>
-      localStorage.getItem(`save${i}`)
-    );
+    const saves = [1, 2, 3, 4].some((i) => localStorage.getItem(`save${i}`));
     setTemSave(saves);
   }, []);
 
@@ -28,58 +28,72 @@ function App() {
   }
 
   return (
-    <div style={styles.container}>
+    <main className="app-shell">
       {tela === "menu" && (
-        <>
-          <h1 style={styles.titulo}>Chronicles of Valedorn</h1>
+        <section className="menu-screen" aria-label="Tela inicial">
+          <img
+            src={telaInicial}
+            alt="Tela inicial de Chronicles of Valedorn"
+            className="menu-image"
+          />
 
-          {temSave && (
-            <button style={styles.botao} onClick={continuar}>
-              ▶ Continuar
+          <div className="menu-hotspots" aria-label="Ações da tela inicial">
+            {temSave && (
+              <button className="hotspot hotspot-continuar" onClick={continuar}>
+                Continuar
+              </button>
+            )}
+
+            <button
+              className={`hotspot ${temSave ? "hotspot-novo-com-save" : "hotspot-novo"}`}
+              onClick={() => setTela("slots")}
+            >
+              Novo Jogo
             </button>
-          )}
-
-          <button style={styles.botao} onClick={() => setTela("slots")}>
-            ▶ Novo Jogo
-          </button>
-        </>
+          </div>
+        </section>
       )}
 
       {tela === "slots" && (
-        <div>
+        <section className="panel">
           <h2>Escolha um Slot</h2>
 
-          {[1, 2, 3, 4].map((slot) => {
-            const existe = localStorage.getItem(`save${slot}`);
+          <div className="stack">
+            {[1, 2, 3, 4].map((slot) => {
+              const existe = localStorage.getItem(`save${slot}`);
 
-            return (
-              <button
-                key={slot}
-                style={styles.botao}
-                onClick={() => {
-                  setSlotSelecionado(slot);
-                  setTela("criar");
-                }}
-              >
-                Slot {slot} {existe ? "(ocupado)" : "(vazio)"}
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={slot}
+                  className="btn"
+                  onClick={() => {
+                    setSlotSelecionado(slot);
+                    setTela("criar");
+                  }}
+                >
+                  Slot {slot} {existe ? "(ocupado)" : "(vazio)"}
+                </button>
+              );
+            })}
+          </div>
 
-          <button style={styles.botao} onClick={() => setTela("menu")}>
+          <button className="btn" onClick={() => setTela("menu")}>
             Voltar
           </button>
-        </div>
+        </section>
       )}
 
       {tela === "criar" && slotSelecionado !== null && (
         <CriarPersonagem
           slot={slotSelecionado}
           voltar={() => setTela("slots")}
-          voltarMenu={() => setTela("menu")}
+          voltarMenu={() => {
+            setTemSave(true);
+            setTela("menu");
+          }}
         />
       )}
-    </div>
+    </main>
   );
 }
 
@@ -100,7 +114,7 @@ function CriarPersonagem({ slot, voltar, voltarMenu }: CriarProps) {
       return;
     }
 
-    let personagem: Personagem = {
+    const personagem: Personagem = {
       nome,
       classe,
       traco,
@@ -109,38 +123,34 @@ function CriarPersonagem({ slot, voltar, voltarMenu }: CriarProps) {
       ouro: 50
     };
 
-    // bônus por classe
     if (classe === "guerreiro") personagem.vida += 20;
     if (classe === "mago") personagem.ataque += 5;
     if (classe === "ladino") personagem.ouro += 20;
 
-    // bônus por traço
     if (traco === "corajoso") personagem.ataque += 3;
     if (traco === "resistente") personagem.vida += 15;
 
     localStorage.setItem(`save${slot}`, JSON.stringify(personagem));
-
     alert("Personagem criado com sucesso!");
-
     voltarMenu();
   }
 
   return (
-    <div>
+    <section className="panel">
       <h2>Criar Personagem (Slot {slot})</h2>
 
       <input
         placeholder="Nome do personagem"
         value={nome}
         onChange={(e) => setNome(e.target.value)}
-        style={styles.input}
+        className="field"
       />
 
       <h3>Classe</h3>
       <select
         value={classe}
         onChange={(e) => setClasse(e.target.value)}
-        style={styles.select}
+        className="field"
       >
         <option value="guerreiro">Guerreiro (+vida)</option>
         <option value="mago">Mago (+ataque)</option>
@@ -151,65 +161,24 @@ function CriarPersonagem({ slot, voltar, voltarMenu }: CriarProps) {
       <select
         value={traco}
         onChange={(e) => setTraco(e.target.value)}
-        style={styles.select}
+        className="field"
       >
         <option value="nenhum">Nenhum</option>
         <option value="corajoso">Corajoso (+ataque)</option>
         <option value="resistente">Resistente (+vida)</option>
       </select>
 
-      <br /><br />
+      <div className="row">
+        <button className="btn" onClick={criar}>
+          Criar Personagem
+        </button>
 
-      <button style={styles.botao} onClick={criar}>
-        Criar Personagem
-      </button>
-
-      <button style={styles.botao} onClick={voltar}>
-        Voltar
-      </button>
-    </div>
+        <button className="btn" onClick={voltar}>
+          Voltar
+        </button>
+      </div>
+    </section>
   );
 }
-
-const styles = {
-  container: {
-    background: "linear-gradient(#0b0b0b, #1a1a1a)",
-    height: "100vh",
-    display: "flex",
-    flexDirection: "column" as const,
-    justifyContent: "center",
-    alignItems: "center",
-    color: "#e6d3a3",
-    fontFamily: "serif"
-  },
-  titulo: {
-    fontSize: "48px",
-    marginBottom: "40px",
-    textShadow: "2px 2px 5px black"
-  },
-  botao: {
-    padding: "12px 30px",
-    fontSize: "18px",
-    background: "#2c1f0f",
-    color: "#e6d3a3",
-    border: "2px solid #a67c52",
-    cursor: "pointer",
-    margin: "10px"
-  },
-  input: {
-    padding: "10px",
-    margin: "10px",
-    background: "#222",
-    color: "white",
-    border: "1px solid #555"
-  },
-  select: {
-    padding: "10px",
-    margin: "10px",
-    background: "#222",
-    color: "white",
-    border: "1px solid #555"
-  }
-};
 
 export default App;
