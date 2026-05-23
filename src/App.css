@@ -10,7 +10,7 @@
 
 .menu-screen {
   position: relative;
-  width: min(96vw, 1200px);
+  width: min(150vw, 1200px);
   aspect-ratio: 3 / 2;
   border: 2px solid #5e4327;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
@@ -36,7 +36,7 @@
 
 .embers {
   position: absolute;
-  right: 22%;
+  right: 45%;
   bottom: 10%;
   width: 150px;
   height: 100px;
@@ -64,21 +64,22 @@
 
 .menu-buttons {
   position: absolute;
-  left: 21%;
-  top: 40%;
-  width: 39%;
-  display: flex;
-  flex-direction: column;
-  gap: clamp(8px, 1.4vh, 14px);
+  left: 13%;
+  top: 41.3%;
+  width: 32%;
+  height: 30.8%;
+  display: grid;
+  grid-template-rows: repeat(4, 1fr);
+  gap: clamp(8px, 1.1vh, 12px);
 }
 
 .menu-btn {
-  height: clamp(44px, 6vh, 14px);
+  height: 100%;
   border-radius: 10px;
   border: 2px solid rgba(217, 167, 93, 0.8);
   background: linear-gradient(180deg, rgba(18, 24, 34, 0.88), rgba(7, 11, 18, 0.92));
   color: #f2d494;
-  font-size: clamp(18px, 2vw, 42px);
+  font-size: clamp(16px, 1.85vw, 34px);
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -209,9 +210,10 @@
 
 @media (max-width: 900px) {
   .menu-buttons {
-    left: 18%;
-    width: 47%;
-    top: 40%;
+    left: 60%;
+    top: 40.8%;
+    width: 48%;
+    height: 37%;
   }
 
   .menu-btn {
