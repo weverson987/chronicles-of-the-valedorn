@@ -228,3 +228,40 @@
   background: rgba(0, 0, 0, 0.22);
   text-align: left;
 }
+.combat-area {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0;
+  text-align: left;
+}
+
+.enemy-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.enemy-sprite {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.life-bar {
+  width: 100%;
+  max-width: 360px;
+  height: 14px;
+  border: 1px solid #a67c52;
+  background: #28190d;
+}
+
+.life-bar > div {
+  height: 100%;
+  background: linear-gradient(90deg, #2dcc4b, #75e066);
+}
+
+.life-bar.enemy > div {
+  background: linear-gradient(90deg, #d13636, #f16666);
+}
