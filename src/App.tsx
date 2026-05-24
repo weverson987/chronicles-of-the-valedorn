@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import telaInicial from "../fotos/tela_inicial.png";
-import { GOBLIN_NOVATO, type Inimigo } from "../entidades/monstros/goblin";
+import { GOBLIN_NOVATO, type Inimigo } from "./entidades/monstros/goblin";
 import "./App.css";
 
 type Tela = "menu" | "slots" | "criar" | "opcoes" | "continuar" | "combate";
