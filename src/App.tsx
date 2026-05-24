@@ -2,245 +2,633 @@ import { useEffect, useMemo, useState } from "react";
 import telaInicial from "../fotos/tela_inicial.png";
 import "./App.css";
 
-type Tela = "menu" | "slots" | "criar" | "opcoes" | "continuar";
+type Tela =
+  | "menu"
+  | "slots"
+  | "criar"
+  | "opcoes"
+  | "continuar";
 
-type Personagem = {
-  nome: string;
-  classe: string;
-  traco: string;
+type ClasseId =
+  | "guerreiro"
+  | "mago"
+  | "ladino";
+
+type Stats = {
   vida: number;
+  defesa: number;
+  magia: number;
+  agilidade: number;
   ataque: number;
   ouro: number;
 };
 
+type EscalonamentoCombate = {
+  manaInicial: number;
+  bonusManaPorMagia: string;
+  bonusDanoFisicoPorAtaque: string;
+  bonusAgilidade: string;
+};
+
+type ItemClasse = {
+  nome: string;
+  bonus: string;
+};
+
+type ClasseConfig = {
+  nome: string;
+  base: Stats;
+  buff: string[];
+  habilidade: string;
+  custo: string;
+  cooldown?: string;
+  efeitoColateral?: string;
+  itens: ItemClasse[];
+};
+
+type Personagem = {
+  nome: string;
+  classe: ClasseId;
+  traco: string | null;
+  stats: Stats;
+  habilidade: string;
+  custoHabilidade: string;
+  cooldownHabilidade?: string;
+  efeitoColateralHabilidade?: string;
+  buffClasse: string[];
+  inventarioInicial: ItemClasse[];
+  escalonamentoCombate: EscalonamentoCombate;
+};
+
 type MenuButton = {
-  id: "novo" | "continuar" | "opcoes" | "sair";
+  id: string;
   texto: string;
   classe: string;
   onClick: () => void;
   disabled?: boolean;
 };
 
+const ESCALONAMENTO_GLOBAL: EscalonamentoCombate =
+{
+  manaInicial: 7,
+  bonusManaPorMagia:
+    "+2 pontos de mana a cada 5 pontos de magia",
+
+  bonusDanoFisicoPorAtaque:
+    "+3 de dano físico na arma a cada 5 pontos de ataque",
+
+  bonusAgilidade:
+    "+7% de esquiva e +3% velocidade de ataque a cada 5 pontos de agilidade"
+};
+
+const CLASSES: Record<
+  ClasseId,
+  ClasseConfig
+> = {
+  guerreiro: {
+    nome: "Guerreiro",
+
+    base: {
+      vida: 15,
+      defesa: 5,
+      magia: 0,
+      agilidade: 5,
+      ataque: 15,
+      ouro: 30
+    },
+
+    buff: [
+      "+5 vida",
+      "+3 ataque",
+      "+2 defesa"
+    ],
+
+    habilidade:
+      "Incansável: -15% dano físico recebido e +10% ataque por 5 turnos",
+
+    custo: "2 mana",
+
+    cooldown: "3 usos por combate",
+
+    efeitoColateral:
+      "Não pode esquivar durante o efeito",
+
+    itens: [
+      {
+        nome: "Peitoral de bronze",
+        bonus: "+5 defesa"
+      },
+
+      {
+        nome: "Lâmina carmesim",
+        bonus:
+          "11 dano físico + sangramento"
+      },
+
+      {
+        nome: "Botas de couro",
+        bonus:
+          "+2 agilidade e +1% esquiva"
+      }
+    ]
+  },
+
+  mago: {
+    nome: "Mago",
+
+    base: {
+      vida: 11,
+      defesa: 3,
+      magia: 15,
+      agilidade: 5,
+      ataque: 5,
+      ouro: 30
+    },
+
+    buff: [
+      "+7 magia",
+      "+2 vida"
+    ],
+
+    habilidade:
+      "Fireball: +13 dano mágico",
+
+    custo: "5 mana",
+
+    itens: [
+      {
+        nome: "Robe sombrio",
+        bonus:
+          "+2 defesa e +3 vida"
+      },
+
+      {
+        nome: "Cajado de bronze",
+        bonus:
+          "+5 dano mágico"
+      },
+
+      {
+        nome: "Poção de mana",
+        bonus: "+10 mana"
+      }
+    ]
+  },
+
+  ladino: {
+    nome: "Ladino",
+
+    base: {
+      vida: 10,
+      defesa: 3,
+      magia: 5,
+      agilidade: 10,
+      ataque: 8,
+      ouro: 30
+    },
+
+    buff: [
+      "+4 agilidade",
+      "+3 ataque"
+    ],
+
+    habilidade:
+      "Dark Poison: veneno por 5 turnos",
+
+    custo: "3 mana",
+
+    itens: [
+      {
+        nome: "Adagas gêmeas",
+        bonus:
+          "+7 dano físico"
+      },
+
+      {
+        nome:
+          "Capuz dos lobos",
+        bonus:
+          "+3% esquiva"
+      },
+
+      {
+        nome: "Poção de cura",
+        bonus: "+10 vida"
+      }
+    ]
+  }
+};
+
 function App() {
-  const [tela, setTela] = useState<Tela>("menu");
-  const [slotSelecionado, setSlotSelecionado] = useState<number | null>(null);
-  const [temSave, setTemSave] = useState(false);
-  const [musicaLigada, setMusicaLigada] = useState(true);
-  const [volume, setVolume] = useState(70);
+  const [tela, setTela] =
+    useState<Tela>("menu");
+
+  const [
+    slotSelecionado,
+    setSlotSelecionado
+  ] = useState<number | null>(null);
+
+  const [temSave, setTemSave] =
+    useState(false);
+
+  const [
+    musicaLigada,
+    setMusicaLigada
+  ] = useState(true);
+
+  const [volume, setVolume] =
+    useState(70);
 
   useEffect(() => {
-    const saves = [1, 2, 3, 4].some((i) => localStorage.getItem(`save${i}`));
-    setTemSave(saves);
+    verificarSaves();
 
-    const musicaSalva = localStorage.getItem("opcoes_musica");
-    const volumeSalvo = localStorage.getItem("opcoes_volume");
+    const musicaSalva =
+      localStorage.getItem(
+        "opcoes_musica"
+      );
 
-    if (musicaSalva) setMusicaLigada(musicaSalva === "ligada");
-    if (volumeSalvo) setVolume(Number(volumeSalvo));
+    const volumeSalvo =
+      localStorage.getItem(
+        "opcoes_volume"
+      );
+
+    if (musicaSalva) {
+      setMusicaLigada(
+        musicaSalva === "ligada"
+      );
+    }
+
+    if (volumeSalvo) {
+      setVolume(Number(volumeSalvo));
+    }
   }, []);
 
-  function abrirNovoJogo() {
-    setTela("slots");
+  function verificarSaves() {
+    const existe = [1, 2, 3, 4].some(
+      (i) =>
+        localStorage.getItem(
+          `save${i}`
+        )
+    );
+
+    setTemSave(existe);
   }
 
-  function abrirContinuar() {
-    if (!temSave) {
-      alert("Nenhum save encontrado.");
-      return;
-    }
+  const botoesMenu: MenuButton[] =
+    useMemo(() => {
+      return [
+        {
+          id: "novo",
+          texto: "Novo Jogo",
+          classe:
+            "menu-btn menu-btn-novo",
 
-    setTela("continuar");
-  }
+          onClick: () =>
+            setTela("slots")
+        },
 
-  function abrirOpcoes() {
-    setTela("opcoes");
-  }
+        {
+          id: "continuar",
+          texto: "Continuar",
+          classe:
+            "menu-btn menu-btn-continuar",
 
-  function sairDoJogo() {
-    const confirmou = window.confirm("Deseja sair para uma página em branco?");
-    if (confirmou) {
-      window.location.href = "about:blank";
-    }
-  }
+          disabled: !temSave,
 
-  const botoesMenu: MenuButton[] = useMemo(
-    () => [
-      {
-        id: "novo",
-        texto: "Novo Jogo",
-        classe: "menu-btn menu-btn-novo",
-        onClick: abrirNovoJogo
-      },
-      {
-        id: "continuar",
-        texto: "Continuar",
-        classe: "menu-btn menu-btn-continuar",
-        onClick: abrirContinuar,
-        disabled: !temSave
-      },
-      {
-        id: "opcoes",
-        texto: "Opções",
-        classe: "menu-btn menu-btn-opcoes",
-        onClick: abrirOpcoes
-      },
-      {
-        id: "sair",
-        texto: "Sair",
-        classe: "menu-btn menu-btn-sair",
-        onClick: sairDoJogo
-      }
-    ],
-    [temSave]
-  );
+          onClick: () => {
+            if (!temSave) {
+              alert(
+                "Nenhum save encontrado."
+              );
+
+              return;
+            }
+
+            setTela("continuar");
+          }
+        },
+
+        {
+          id: "opcoes",
+          texto: "Opções",
+          classe:
+            "menu-btn menu-btn-opcoes",
+
+          onClick: () =>
+            setTela("opcoes")
+        },
+
+        {
+          id: "sair",
+          texto: "Sair",
+          classe:
+            "menu-btn menu-btn-sair",
+
+          onClick: () => {
+            const sair =
+              window.confirm(
+                "Deseja sair?"
+              );
+
+            if (sair) {
+              window.location.href =
+                "about:blank";
+            }
+          }
+        }
+      ];
+    }, [temSave]);
 
   return (
     <main className="app-shell">
       {tela === "menu" && (
-        <section className="menu-screen" aria-label="Tela inicial">
-          <img
-            src={telaInicial}
-            alt="Tela inicial de Chronicles of Valedorn"
-            className="menu-image"
-          />
-
-          <div className="menu-overlay" aria-hidden="true" />
-          <div className="embers" aria-hidden="true" />
-
-          <div className="menu-buttons" aria-label="Ações da tela inicial">
-            {botoesMenu.map((botao) => (
-              <button
-                key={botao.id}
-                className={botao.classe}
-                onClick={botao.onClick}
-                disabled={botao.disabled}
-              >
-                {botao.texto}
-              </button>
-            ))}
-          </div>
-        </section>
+        <MenuInicial
+          botoes={botoesMenu}
+        />
       )}
 
       {tela === "slots" && (
-        <section className="panel">
-          <h2>Escolha um Slot</h2>
+        <TelaSlots
+          onBack={() =>
+            setTela("menu")
+          }
 
-          <div className="stack">
-            {[1, 2, 3, 4].map((slot) => {
-              const existe = localStorage.getItem(`save${slot}`);
-
-              return (
-                <button
-                  key={slot}
-                  className="btn"
-                  onClick={() => {
-                    setSlotSelecionado(slot);
-                    setTela("criar");
-                  }}
-                >
-                  Slot {slot} {existe ? "(ocupado)" : "(vazio)"}
-                </button>
-              );
-            })}
-          </div>
-
-          <button className="btn" onClick={() => setTela("menu")}>
-            Voltar
-          </button>
-        </section>
-      )}
-
-      {tela === "continuar" && (
-        <section className="panel">
-          <h2>Continuar Aventura</h2>
-          <div className="stack">
-            {[1, 2, 3, 4].map((slot) => {
-              const raw = localStorage.getItem(`save${slot}`);
-              const personagem = raw ? (JSON.parse(raw) as Personagem) : null;
-
-              return (
-                <button
-                  key={slot}
-                  className="btn"
-                  disabled={!personagem}
-                  onClick={() => {
-                    if (!personagem) return;
-                    alert(
-                      `Slot ${slot}: ${personagem.nome} (${personagem.classe}) | Vida ${personagem.vida} | Ataque ${personagem.ataque} | Ouro ${personagem.ouro}`
-                    );
-                  }}
-                >
-                  {personagem
-                    ? `Slot ${slot} - ${personagem.nome} (${personagem.classe})`
-                    : `Slot ${slot} vazio`}
-                </button>
-              );
-            })}
-          </div>
-
-          <button className="btn" onClick={() => setTela("menu")}>
-            Voltar
-          </button>
-        </section>
-      )}
-
-      {tela === "opcoes" && (
-        <section className="panel">
-          <h2>Opções</h2>
-
-          <div className="stack">
-            <label className="option-item" htmlFor="musica">
-              Música
-              <select
-                id="musica"
-                className="field"
-                value={musicaLigada ? "ligada" : "desligada"}
-                onChange={(e) => {
-                  const ligado = e.target.value === "ligada";
-                  setMusicaLigada(ligado);
-                  localStorage.setItem("opcoes_musica", ligado ? "ligada" : "desligada");
-                }}
-              >
-                <option value="ligada">Ligada</option>
-                <option value="desligada">Desligada</option>
-              </select>
-            </label>
-
-            <label className="option-item" htmlFor="volume">
-              Volume: {volume}%
-              <input
-                id="volume"
-                type="range"
-                min={0}
-                max={100}
-                value={volume}
-                onChange={(e) => {
-                  const novoVolume = Number(e.target.value);
-                  setVolume(novoVolume);
-                  localStorage.setItem("opcoes_volume", String(novoVolume));
-                }}
-              />
-            </label>
-          </div>
-
-          <button className="btn" onClick={() => setTela("menu")}>
-            Voltar
-          </button>
-        </section>
-      )}
-
-      {tela === "criar" && slotSelecionado !== null && (
-        <CriarPersonagem
-          slot={slotSelecionado}
-          voltar={() => setTela("slots")}
-          voltarMenu={() => {
-            setTemSave(true);
-            setTela("menu");
+          onSelect={(slot) => {
+            setSlotSelecionado(slot);
+            setTela("criar");
           }}
         />
       )}
+
+      {tela === "continuar" && (
+        <TelaContinuar
+          onBack={() =>
+            setTela("menu")
+          }
+        />
+      )}
+
+      {tela === "opcoes" && (
+        <TelaOpcoes
+          musicaLigada={
+            musicaLigada
+          }
+
+          volume={volume}
+
+          onBack={() =>
+            setTela("menu")
+          }
+
+          onMusica={(valor) => {
+            setMusicaLigada(valor);
+
+            localStorage.setItem(
+              "opcoes_musica",
+
+              valor
+                ? "ligada"
+                : "desligada"
+            );
+          }}
+
+          onVolume={(valor) => {
+            setVolume(valor);
+
+            localStorage.setItem(
+              "opcoes_volume",
+              String(valor)
+            );
+          }}
+        />
+      )}
+
+      {tela === "criar" &&
+        slotSelecionado !== null && (
+          <CriarPersonagem
+            slot={slotSelecionado}
+
+            voltar={() =>
+              setTela("slots")
+            }
+
+            voltarMenu={() => {
+              verificarSaves();
+              setTela("menu");
+            }}
+          />
+        )}
     </main>
+  );
+}
+
+function MenuInicial({
+  botoes
+}: {
+  botoes: MenuButton[];
+}) {
+  return (
+    <section className="menu-screen">
+      <img
+        src={telaInicial}
+        alt="Tela inicial"
+        className="menu-image"
+      />
+
+      <div className="menu-buttons">
+        {botoes.map((botao) => (
+          <button
+            key={botao.id}
+            className={botao.classe}
+            onClick={botao.onClick}
+            disabled={botao.disabled}
+          >
+            {botao.texto}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TelaSlots({
+  onSelect,
+  onBack
+}: {
+  onSelect: (
+    slot: number
+  ) => void;
+
+  onBack: () => void;
+}) {
+  return (
+    <section className="panel">
+      <h2>Escolha um Slot</h2>
+
+      <div className="stack">
+        {[1, 2, 3, 4].map(
+          (slot) => {
+            const existe =
+              localStorage.getItem(
+                `save${slot}`
+              );
+
+            return (
+              <button
+                key={slot}
+                className="btn"
+                onClick={() =>
+                  onSelect(slot)
+                }
+              >
+                Slot {slot}{" "}
+                {existe
+                  ? "(ocupado)"
+                  : "(vazio)"}
+              </button>
+            );
+          }
+        )}
+      </div>
+
+      <button
+        className="btn"
+        onClick={onBack}
+      >
+        Voltar
+      </button>
+    </section>
+  );
+}
+
+function TelaContinuar({
+  onBack
+}: {
+  onBack: () => void;
+}) {
+  return (
+    <section className="panel">
+      <h2>Continuar</h2>
+
+      <div className="stack">
+        {[1, 2, 3, 4].map(
+          (slot) => {
+            const raw =
+              localStorage.getItem(
+                `save${slot}`
+              );
+
+            const personagem =
+              raw
+                ? (JSON.parse(
+                    raw
+                  ) as Personagem)
+                : null;
+
+            return (
+              <button
+                key={slot}
+                className="btn"
+                disabled={!personagem}
+              >
+                {personagem
+                  ? `${personagem.nome} (${CLASSES[personagem.classe].nome})`
+                  : `Slot ${slot} vazio`}
+              </button>
+            );
+          }
+        )}
+      </div>
+
+      <button
+        className="btn"
+        onClick={onBack}
+      >
+        Voltar
+      </button>
+    </section>
+  );
+}
+
+function TelaOpcoes({
+  musicaLigada,
+  volume,
+  onMusica,
+  onVolume,
+  onBack
+}: {
+  musicaLigada: boolean;
+
+  volume: number;
+
+  onMusica: (
+    valor: boolean
+  ) => void;
+
+  onVolume: (
+    valor: number
+  ) => void;
+
+  onBack: () => void;
+}) {
+  return (
+    <section className="panel">
+      <h2>Opções</h2>
+
+      <div className="stack">
+        <label>
+          Música
+        </label>
+
+        <select
+          value={
+            musicaLigada
+              ? "ligada"
+              : "desligada"
+          }
+
+          onChange={(e) =>
+            onMusica(
+              e.target.value ===
+                "ligada"
+            )
+          }
+        >
+          <option value="ligada">
+            Ligada
+          </option>
+
+          <option value="desligada">
+            Desligada
+          </option>
+        </select>
+
+        <label>
+          Volume: {volume}
+        </label>
+
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={volume}
+          onChange={(e) =>
+            onVolume(
+              Number(
+                e.target.value
+              )
+            )
+          }
+        />
+      </div>
+
+      <button
+        className="btn"
+        onClick={onBack}
+      >
+        Voltar
+      </button>
+    </section>
   );
 }
 
@@ -250,77 +638,264 @@ type CriarProps = {
   voltarMenu: () => void;
 };
 
-function CriarPersonagem({ slot, voltar, voltarMenu }: CriarProps) {
-  const [nome, setNome] = useState("");
-  const [classe, setClasse] = useState("guerreiro");
-  const [traco, setTraco] = useState("nenhum");
+function CriarPersonagem({
+  slot,
+  voltar,
+  voltarMenu
+}: CriarProps) {
+  const [nome, setNome] =
+    useState("");
 
-  function criar() {
-    if (!nome) {
-      alert("Digite um nome!");
+  const [classe, setClasse] =
+    useState<ClasseId>(
+      "guerreiro"
+    );
+
+  const [usarTraco, setUsarTraco] =
+    useState(false);
+
+  const [traco, setTraco] =
+    useState("nenhum");
+
+  function salvar() {
+    if (!nome.trim()) {
+      alert(
+        "Digite um nome."
+      );
+
       return;
     }
 
-    const personagem: Personagem = {
-      nome,
-      classe,
-      traco,
-      vida: 100,
-      ataque: 10,
-      ouro: 50
-    };
+    const personagem: Personagem =
+      {
+        nome,
+        classe,
 
-    if (classe === "guerreiro") personagem.vida += 20;
-    if (classe === "mago") personagem.ataque += 5;
-    if (classe === "ladino") personagem.ouro += 20;
+        traco: usarTraco
+          ? traco
+          : null,
 
-    if (traco === "corajoso") personagem.ataque += 3;
-    if (traco === "resistente") personagem.vida += 15;
+        stats: {
+          ...CLASSES[classe].base
+        },
 
-    localStorage.setItem(`save${slot}`, JSON.stringify(personagem));
-    alert("Personagem criado com sucesso!");
+        habilidade:
+          CLASSES[classe]
+            .habilidade,
+
+        custoHabilidade:
+          CLASSES[classe]
+            .custo,
+
+        cooldownHabilidade:
+          CLASSES[classe]
+            .cooldown,
+
+        efeitoColateralHabilidade:
+          CLASSES[classe]
+            .efeitoColateral,
+
+        buffClasse: [
+          ...CLASSES[classe]
+            .buff
+        ],
+
+        inventarioInicial: [
+          ...CLASSES[classe]
+            .itens
+        ],
+
+        escalonamentoCombate:
+          ESCALONAMENTO_GLOBAL
+      };
+
+    localStorage.setItem(
+      `save${slot}`,
+      JSON.stringify(
+        personagem
+      )
+    );
+
+    alert(
+      "Personagem criado!"
+    );
+
     voltarMenu();
   }
 
+  const classeAtual =
+    CLASSES[classe];
+
   return (
     <section className="panel">
-      <h2>Criar Personagem (Slot {slot})</h2>
+      <h2>
+        Criar Personagem
+      </h2>
 
       <input
-        placeholder="Nome do personagem"
-        value={nome}
-        onChange={(e) => setNome(e.target.value)}
         className="field"
+        placeholder="Nome"
+
+        value={nome}
+
+        onChange={(e) =>
+          setNome(
+            e.target.value
+          )
+        }
       />
 
-      <h3>Classe</h3>
       <select
-        value={classe}
-        onChange={(e) => setClasse(e.target.value)}
         className="field"
+
+        value={classe}
+
+        onChange={(e) =>
+          setClasse(
+            e.target
+              .value as ClasseId
+          )
+        }
       >
-        <option value="guerreiro">Guerreiro (+vida)</option>
-        <option value="mago">Mago (+ataque)</option>
-        <option value="ladino">Ladino (+ouro)</option>
+        <option value="guerreiro">
+          Guerreiro
+        </option>
+
+        <option value="mago">
+          Mago
+        </option>
+
+        <option value="ladino">
+          Ladino
+        </option>
       </select>
 
-      <h3>Traço</h3>
-      <select
-        value={traco}
-        onChange={(e) => setTraco(e.target.value)}
-        className="field"
-      >
-        <option value="nenhum">Nenhum</option>
-        <option value="corajoso">Corajoso (+ataque)</option>
-        <option value="resistente">Resistente (+vida)</option>
-      </select>
+      <label>
+        <input
+          type="checkbox"
+
+          checked={usarTraco}
+
+          onChange={(e) =>
+            setUsarTraco(
+              e.target.checked
+            )
+          }
+        />
+
+        Usar traço
+      </label>
+
+      {usarTraco && (
+        <select
+          className="field"
+
+          value={traco}
+
+          onChange={(e) =>
+            setTraco(
+              e.target.value
+            )
+          }
+        >
+          <option value="nenhum">
+            Nenhum
+          </option>
+
+          <option value="corajoso">
+            Corajoso
+          </option>
+
+          <option value="resistente">
+            Resistente
+          </option>
+        </select>
+      )}
+
+      <div className="class-preview">
+        <h3>
+          {classeAtual.nome}
+        </h3>
+
+        <p>
+          Vida:{" "}
+          {
+            classeAtual.base
+              .vida
+          }
+        </p>
+
+        <p>
+          Defesa:{" "}
+          {
+            classeAtual.base
+              .defesa
+          }
+        </p>
+
+        <p>
+          Magia:{" "}
+          {
+            classeAtual.base
+              .magia
+          }
+        </p>
+
+        <p>
+          Agilidade:{" "}
+          {
+            classeAtual.base
+              .agilidade
+          }
+        </p>
+
+        <p>
+          Ataque:{" "}
+          {
+            classeAtual.base
+              .ataque
+          }
+        </p>
+
+        <p>
+          Ouro:{" "}
+          {
+            classeAtual.base
+              .ouro
+          }
+        </p>
+
+        <p>
+          <strong>
+            Buffs:
+          </strong>{" "}
+          {classeAtual.buff.join(
+            ", "
+          )}
+        </p>
+
+        <p>
+          <strong>
+            Habilidade:
+          </strong>{" "}
+          {
+            classeAtual.habilidade
+          }
+        </p>
+      </div>
 
       <div className="row">
-        <button className="btn" onClick={criar}>
-          Criar Personagem
+        <button
+          className="btn"
+          onClick={salvar}
+        >
+          Criar
         </button>
 
-        <button className="btn" onClick={voltar}>
+        <button
+          className="btn"
+          onClick={voltar}
+        >
           Voltar
         </button>
       </div>

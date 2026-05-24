@@ -220,3 +220,11 @@
     font-size: clamp(14px, 2.8vw, 28px);
   }
 }
+.existing-saves,
+.class-preview {
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid #6f5235;
+  background: rgba(0, 0, 0, 0.22);
+  text-align: left;
+}
