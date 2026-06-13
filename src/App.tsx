@@ -1,18 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import telaInicial from "../fotos/tela_inicial.png";
-import { GOBLIN_NOVATO, type Inimigo } from "./entidades/monstros/goblin";
+import { GOBLIN_NOVATO, type Inimigo } from "../entidades/monstros/goblin";
 import "./App.css";
 
-type Tela = "menu" | "slots" | "criar" | "opcoes" | "continuar" | "combate";
+type Tela = "menu" | "slots" | "criar" | "continuar" | "combate";
 type ClasseId = "guerreiro" | "mago" | "ladino";
-type AcaoCombate = "ataque" | "magia" | "habilidade" | "item";
+type AcaoCombate = "ataque" | "magia" | "habilidade" | "item" | "fugir";
 
 type Stats = { vida: number; defesa: number; magia: number; agilidade: number; ataque: number; ouro: number };
-type EscalonamentoCombate = { manaInicial: number; bonusManaPorMagia: string; bonusDanoFisicoPorAtaque: string; bonusAgilidade: string };
-type ItemClasse = { nome: string; bonus: string };
-type ClasseConfig = { nome: string; base: Stats; buff: string[]; habilidade: string; custo: string; cooldown?: string; efeitoColateral?: string; itens: ItemClasse[] };
-type Personagem = { nome: string; classe: ClasseId; traco: string | null; stats: Stats; habilidade: string; custoHabilidade: string; cooldownHabilidade?: string; efeitoColateralHabilidade?: string; buffClasse: string[]; inventarioInicial: ItemClasse[]; escalonamentoCombate: EscalonamentoCombate };
-type MenuButton = { id: string; texto: string; classe: string; onClick: () => void; disabled?: boolean };
+type ClasseConfig = { nome: string; base: Stats; habilidade: string };
+type Personagem = { nome: string; classe: ClasseId; stats: Stats; habilidade: string };
 
 const ESCALONAMENTO_GLOBAL: EscalonamentoCombate = { manaInicial: 7, bonusManaPorMagia: "+2 pontos de mana a cada 5 pontos de magia", bonusDanoFisicoPorAtaque: "+3 de dano físico na arma a cada 5 pontos de ataque", bonusAgilidade: "+7% de esquiva e +3% velocidade de ataque a cada 5 pontos de agilidade" };
 const CLASSES: Record<ClasseId, ClasseConfig> = { guerreiro: { nome: "Guerreiro", base: { vida: 15, defesa: 5, magia: 0, agilidade: 5, ataque: 15, ouro: 30 }, buff: ["+5 vida", "+3 ataque", "+2 defesa"], habilidade: "Incansável: -15% dano físico recebido e +10% ataque por 5 turnos", custo: "2 mana", cooldown: "3 usos por combate", efeitoColateral: "Não pode esquivar durante o efeito", itens: [{ nome: "Peitoral de bronze", bonus: "+5 defesa" }, { nome: "Lâmina carmesim", bonus: "11 dano físico + sangramento" }, { nome: "Botas de couro", bonus: "+2 agilidade e +1% esquiva" }] }, mago: { nome: "Mago", base: { vida: 11, defesa: 3, magia: 15, agilidade: 5, ataque: 5, ouro: 30 }, buff: ["+7 magia", "+2 vida"], habilidade: "Fireball: +13 dano mágico", custo: "5 mana", itens: [{ nome: "Robe sombrio", bonus: "+2 defesa e +3 vida" }, { nome: "Cajado de bronze", bonus: "+5 dano mágico" }, { nome: "Poção de mana", bonus: "+10 mana" }] }, ladino: { nome: "Ladino", base: { vida: 10, defesa: 3, magia: 5, agilidade: 10, ataque: 8, ouro: 30 }, buff: ["+4 agilidade", "+3 ataque"], habilidade: "Dark Poison: veneno por 5 turnos", custo: "3 mana", itens: [{ nome: "Adagas gêmeas", bonus: "+7 dano físico" }, { nome: "Capuz dos lobos", bonus: "+3% esquiva" }, { nome: "Poção de cura", bonus: "+10 vida" }] } };
