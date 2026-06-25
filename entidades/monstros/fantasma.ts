@@ -1,7 +1,5 @@
 import type { Inimigo } from "./tipos.ts";
-import fantasmaImg from "./fantasma.png";
-
-console.log("ARQUIVO FANTASMA CARREGADO");
+const fantasmaImg = new URL("./fantasma.png", import.meta.url).href;
 
 export type FaixaNivelFantasma = {
   nivelMinimo: number;

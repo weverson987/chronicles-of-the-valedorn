@@ -36,7 +36,7 @@ export const GOBLIN_XAMA: Inimigo = {
   imagem: goblinXamaImg,
   golpes: [
     { nome: "Pedregulho", tipo: "magia", dano: 3 },
-    { nome: "Invocar Goblin Guerreiro", tipo: "habilidade", dano: 0 },
+    { nome: "Invocar Goblin Guerreiro", tipo: "habilidade", dano: 0, efeito: "invencivel" },
     { nome: "Cajadada", tipo: "ataque", dano: 2 },
   ],
   falas: {
@@ -72,5 +72,6 @@ export const GOBLIN_GUERREIRO: Inimigo = {
     chance: 25,
     percentualVidaPerdida: 85,
   },
+    reducaoDanoFisico: 0.2,
 };
 export const GOBLINS = [GOBLIN_XAMA, GOBLIN_GUERREIRO];
