@@ -333,3 +333,13 @@
   border: 1px solid #6f5235;
   background: rgba(0, 0, 0, 0.22);
 }
+.enemy-target {
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.enemy-target.selected {
+  border-color: #ffd88f;
+  box-shadow: 0 0 18px rgba(255, 216, 143, 0.45);
+}
