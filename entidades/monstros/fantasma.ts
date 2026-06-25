@@ -34,7 +34,7 @@ export const FANTASMA: Inimigo = {
   xpDrop: 5,
   imagem: fantasmaImg,
   golpes: [
-    { nome: "Possuir", tipo: "magia", dano: 3, efeito: "invencivel" },
+    { nome: "Possuir", tipo: "magia", dano: 3 },
     { nome: "Susto", tipo: "magia", dano: 4, efeito: "sem_atacar" },
   ],
   falas: {

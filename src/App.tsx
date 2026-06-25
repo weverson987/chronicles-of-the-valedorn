@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import telaInicial from "../fotos/tela_inicial.png";
 import guerreiroImg from "../entidades/player/guerreiro.png";
 import magoImg from "../entidades/player/mago.png";
@@ -12,6 +12,7 @@ import "./App.css";
 type Tela = "menu" | "slots" | "criar" | "continuar" | "combate";
 type ClasseId = "guerreiro" | "mago" | "ladino";
 type AcaoCombate = "ataque" | "magia" | "habilidade" | "item" | "fugir";
+type AtributoDistribuivel = "vida" | "defesa" | "magia" | "agilidade" | "ataque";
 
 type Stats = { vida: number; defesa: number; magia: number; agilidade: number; ataque: number; ouro: number };
 type ClasseConfig = { nome: string; base: Stats; habilidade: string; magiaNome: string; imagem: string };
@@ -32,13 +33,24 @@ const PROGRESSAO_NIVEL = [
   { nivel: 5, xpProximo: 2000, pontosStatus: 3 },
 ];
 
+const ATRIBUTOS_DISTRIBUIVEIS: AtributoDistribuivel[] = ["vida", "defesa", "magia", "agilidade", "ataque"];
+
+const ITENS_COMBATE = [
+  { id: "pocao_cura", nome: "Poção de cura", descricao: "Restaura 5 de vida.", cura: 5 },
+  { id: "tonico_menor", nome: "Tônico menor", descricao: "Restaura 3 de vida em emergências.", cura: 3 },
+];
+
+const CHANCE_FUGA_BASE = 90;
+
 const calcDano = (base: number, defesa: number) => Math.max(1, Math.floor(base - defesa * 0.4));
+
+const rolarPorcentagem = () => Math.random() * 100;
 
 const sortearInteiro = (minimo: number, maximo: number) => Math.floor(Math.random() * (maximo - minimo + 1)) + minimo;
 
 function criarEncontroMonstro(nivelJogador: number): Inimigo {
   const chanceFantasma = chanceEncontroFantasma(nivelJogador);
-  if (Math.random() * 100 < chanceFantasma) {
+  if (rolarPorcentagem() < chanceFantasma) {
     return {
       ...FANTASMA,
       nivel: nivelJogador,
@@ -62,9 +74,10 @@ function normalizarPersonagem(p: Personagem): Personagem {
   };
 }
 
-function aplicarXp(personagem: Personagem, xpGanho: number): Personagem {
+function aplicarXp(personagem: Personagem, xpGanho: number): { personagem: Personagem; niveisGanhos: number } {
   let progresso = { ...personagem.progresso, xp: personagem.progresso.xp + xpGanho };
-  let stats = { ...personagem.stats };
+  const stats = { ...personagem.stats };
+  let niveisGanhos = 0;
   while (progresso.xp >= progresso.xpProximo) {
     const proxNivel = progresso.nivel + 1;
     const regra = PROGRESSAO_NIVEL.find((item) => item.nivel === proxNivel);
@@ -74,9 +87,9 @@ function aplicarXp(personagem: Personagem, xpGanho: number): Personagem {
       xpProximo: regra?.xpProximo ?? Math.floor(progresso.xpProximo * 1.45),
       pontosStatus: progresso.pontosStatus + (regra?.pontosStatus ?? 3),
     };
-    stats = { ...stats, vida: stats.vida + 2, ataque: stats.ataque + 1, defesa: stats.defesa + 1 };
+    niveisGanhos += 1;
   }
-  return { ...personagem, stats, progresso };
+  return { personagem: { ...personagem, stats, progresso }, niveisGanhos };
 }
 
 export default function App() {
@@ -102,6 +115,16 @@ export default function App() {
       {tela === "continuar" && <TelaContinuar onBack={() => setTela("menu")} onFight={(p) => { setPersonagemAtivo(p); setTela("combate"); }} />}
       {tela === "combate" && personagemAtivo && <TelaCombate personagem={personagemAtivo} onBack={() => setTela("continuar")} />}
     </main>);
+}
+
+function salvarPersonagemAtualizado(personagem: Personagem) {
+  for (let slot = 1; slot <= 4; slot += 1) {
+    const salvo = lerSave(slot);
+    if (salvo?.nome === personagem.nome && salvo.classe === personagem.classe) {
+      localStorage.setItem(`save${slot}`, JSON.stringify(personagem));
+      return;
+    }
+  }
 }
 
 function lerSave(slot: number) {
@@ -136,16 +159,26 @@ function TelaCombate({ personagem, onBack }: { personagem: Personagem; onBack: (
   const [log, setLog] = useState<string[]>([`${personagem.nome} encontrou ${inimigoInicial.nome} Lv.${inimigoInicial.nivel}.`]);
   const [turnosInvencivelInimigo, setTurnosInvencivelInimigo] = useState(0);
   const [turnosSemAtacar, setTurnosSemAtacar] = useState(0);
+  const [penalidadeFuga, setPenalidadeFuga] = useState(0);
+  const [mostraItens, setMostraItens] = useState(false);
+  const [modalNivel, setModalNivel] = useState(false);
+  const [niveisPendentes, setNiveisPendentes] = useState(0);
 
   const alvoAtual = inimigosAtivos[alvoSelecionado] ?? inimigosAtivos[0];
   const combateEncerrado = inimigosAtivos.length === 0;
+  const chanceFugaAtual = Math.max(5, CHANCE_FUGA_BASE - penalidadeFuga);
 
+  useEffect(() => {
+    salvarPersonagemAtualizado(player);
+  }, [player]);
   function iniciarNovoCombate(personagemAtual: Personagem = player) {
     const proximoInimigo = criarEncontroMonstro(personagemAtual.progresso.nivel);
     setInimigosAtivos([criarInimigoEmCombate(proximoInimigo)]);
     setAlvoSelecionado(0);
     setTurnosInvencivelInimigo(0);
     setTurnosSemAtacar(0);
+    setPenalidadeFuga(0);
+    setMostraItens(false);
     setLog((l) => [`${personagemAtual.nome} encontrou ${proximoInimigo.nome} Lv.${proximoInimigo.nivel}.`, ...l]);
   }
 
@@ -191,23 +224,25 @@ function TelaCombate({ personagem, onBack }: { personagem: Personagem; onBack: (
       return;
     }
     if (acao === "fugir") {
-      const inimigoMaisAgil = Math.max(...inimigosAtivos.map(({ inimigo }) => inimigo.agilidade));
-      const chanceFuga = player.stats.agilidade + player.progresso.nivel * 2;
-      if (chanceFuga >= inimigoMaisAgil + 4) {
-        setLog((l) => ["Você fugiu com sucesso.", ...l]);
+      if (rolarPorcentagem() < chanceFugaAtual) {
+        setLog((l) => [`Você fugiu com sucesso (${chanceFugaAtual}% de chance).`, ...l]);
         onBack();
         return;
       }
-      setLog((l) => ["Falhou ao fugir!", ...l]);
+      setLog((l) => [`Falhou ao fugir (${chanceFugaAtual}% de chance).`, ...l]);
       ataqueDosMonstros(vidaPlayer);
       return;
     }
 
+    if (acao === "item") {
+      setMostraItens((valor) => !valor);
+      return;
+    }
     const inimigoBase = alvoAtual.inimigo;
-    const nomeAcao = acao === "magia" ? player.magiaNome : acao === "habilidade" ? player.habilidade : acao === "item" ? "Item improvisado" : "Ataque básico";
-    const bruto = acao === "ataque" ? player.stats.ataque : acao === "magia" ? player.stats.magia + 4 : acao === "habilidade" ? player.stats.ataque + player.stats.magia * 0.6 : player.stats.ataque * 0.7;
+    const nomeAcao = acao === "magia" ? player.magiaNome : acao === "habilidade" ? player.habilidade : "Ataque básico";
+    const bruto = acao === "ataque" ? player.stats.ataque : acao === "magia" ? player.stats.magia + 4 : player.stats.ataque + player.stats.magia * 0.6;
     const danoCalculado = calcDano(bruto, inimigoBase.defesa);
-    const acaoFisica = acao === "ataque" || acao === "item";
+    const acaoFisica = acao === "ataque";
     const danoReduzido = acaoFisica && inimigoBase.reducaoDanoFisico ? Math.max(1, Math.floor(danoCalculado * inimigoBase.reducaoDanoFisico)) : danoCalculado;
     const estaInvencivel = turnosInvencivelInimigo > 0;
     const dano = estaInvencivel ? 0 : danoReduzido;
@@ -217,8 +252,12 @@ function TelaCombate({ personagem, onBack }: { personagem: Personagem; onBack: (
     setLog((l) => [`Você usou ${nomeAcao} em ${inimigoBase.nome} e causou ${dano} de dano.`, ...l]);
 
     if (novaVidaAlvo <= 0) {
-      const atualizado = aplicarXp({ ...player, stats: { ...player.stats, ouro: player.stats.ouro + inimigoBase.ouroDrop } }, inimigoBase.xpDrop);
-      setPlayer(atualizado);
+      const resultadoXp = aplicarXp({ ...player, stats: { ...player.stats, ouro: player.stats.ouro + inimigoBase.ouroDrop } }, inimigoBase.xpDrop);
+      setPlayer(resultadoXp.personagem);
+      if (resultadoXp.niveisGanhos > 0) {
+        setNiveisPendentes((valor) => valor + resultadoXp.niveisGanhos);
+        setModalNivel(true);
+      }
       const falaMorte = inimigoBase.falas?.aoMorrer ? `${inimigoBase.nome}: ${inimigoBase.falas.aoMorrer}` : `${inimigoBase.nome} foi derrotado!`;
            setLog((l) => [`${falaMorte} +${inimigoBase.xpDrop} XP, +${inimigoBase.ouroDrop} ouro.`, ...l]);
       setInimigosAtivos((lista) => {
@@ -252,14 +291,72 @@ function TelaCombate({ personagem, onBack }: { personagem: Personagem; onBack: (
           </button>
         ))}
       </div>
-      <div className="novo-jogo-info">Ouro: <strong>{player.stats.ouro}</strong> | XP: <strong>{player.progresso.xp}/{player.progresso.xpProximo}</strong> | Pontos: <strong>{player.progresso.pontosStatus}</strong></div>
-      <div className="hp-wrap"><span>Sua vida: {vidaPlayer}/{player.stats.vida}</span><div className="hp-bar"><div style={{ width: `${barraPct(vidaPlayer, player.stats.vida)}%` }} /></div></div>
+      <div className="novo-jogo-info">Ouro: <strong>{player.stats.ouro}</strong> | XP: <strong>{player.progresso.xp}/{player.progresso.xpProximo}</strong> | Pontos: <strong>{player.progresso.pontosStatus}</strong> | Fuga: <strong>{chanceFugaAtual}%</strong></div>      <div className="hp-wrap"><span>Sua vida: {vidaPlayer}/{player.stats.vida}</span><div className="hp-bar"><div style={{ width: `${barraPct(vidaPlayer, player.stats.vida)}%` }} /></div></div>
       {alvoAtual && <div className="hp-wrap"><span>Alvo: {alvoAtual.inimigo.nome} ({alvoAtual.vida}/{alvoAtual.inimigo.vidaMaxima})</span><div className="hp-bar enemy"><div style={{ width: `${barraPct(alvoAtual.vida, alvoAtual.inimigo.vidaMaxima)}%` }} /></div></div>}
-      <div className="row">{(["ataque", "magia", "habilidade", "item", "fugir"] as AcaoCombate[]).map((a) => <button key={a} className="btn" disabled={vidaPlayer <= 0 || combateEncerrado} onClick={() => executarAcao(a)}>{a}</button>)}</div>
-      <div className="row"><button className="btn" disabled={vidaPlayer <= 0 || !combateEncerrado} onClick={() => iniciarNovoCombate(player)}>Procurar outro inimigo</button></div>
-      <div className="log">{log.slice(0, 8).map((l, i) => <p key={i}>{l}</p>)}</div>
+      <div className="row">{(["ataque", "magia", "habilidade", "item", "fugir"] as AcaoCombate[]).map((a) => <button key={a} className="btn" disabled={vidaPlayer <= 0 || combateEncerrado || modalNivel} onClick={() => executarAcao(a)}>{a}</button>)}</div>
+      {mostraItens && <ListaItens vidaAtual={vidaPlayer} vidaMaxima={player.stats.vida} usarItem={(item) => {
+        const novaVida = Math.min(player.stats.vida, vidaPlayer + item.cura);
+        setVidaPlayer(novaVida);
+        setMostraItens(false);
+        setLog((l) => [`Você usou ${item.nome} e restaurou ${novaVida - vidaPlayer} de vida.`, ...l]);
+        ataqueDosMonstros(novaVida);
+      }} />}
+      <div className="row"><button className="btn" disabled={vidaPlayer <= 0 || !combateEncerrado || modalNivel} onClick={() => iniciarNovoCombate(player)}>Procurar outro inimigo</button></div>
+      {modalNivel && <ModalNivel personagem={player} niveisGanhos={niveisPendentes} distribuir={(atributo) => {
+        if (player.progresso.pontosStatus <= 0) return;
+        setPlayer((atual) => ({ ...atual, stats: { ...atual.stats, [atributo]: atual.stats[atributo] + 1 }, progresso: { ...atual.progresso, pontosStatus: atual.progresso.pontosStatus - 1 } }));
+      }} fechar={() => { if (player.progresso.pontosStatus <= 0) { setModalNivel(false); setNiveisPendentes(0); } }} />}      <div className="log">{log.slice(0, 8).map((l, i) => <p key={i}>{l}</p>)}</div>
       <button className="btn" onClick={onBack}>Voltar</button>
     </section>
+  );
+}
+
+function ListaItens({ vidaAtual, vidaMaxima, usarItem }: { vidaAtual: number; vidaMaxima: number; usarItem: (item: (typeof ITENS_COMBATE)[number]) => void }) {
+  return (
+    <div className="items-panel">
+      <h3>Itens</h3>
+      <p>Escolha um item para usar neste turno.</p>
+      <div className="stack">
+        {ITENS_COMBATE.map((item) => (
+          <button key={item.id} className="item-button" disabled={vidaAtual >= vidaMaxima} onClick={() => usarItem(item)}>
+            <strong>{item.nome}</strong>
+            <span>{item.descricao}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ModalNivel({ personagem, niveisGanhos, distribuir, fechar }: { personagem: Personagem; niveisGanhos: number; distribuir: (atributo: AtributoDistribuivel) => void; fechar: () => void }) {
+  const classeBase = CLASSES[personagem.classe].base;
+  const pontos = personagem.progresso.pontosStatus;
+
+  return (
+    <div className="level-overlay" role="dialog" aria-modal="true" aria-labelledby="level-title">
+      <div className="level-modal">
+        <div>
+          <p className="level-kicker">Nível aumentado!</p>
+          <h3 id="level-title">{personagem.nome} chegou ao nível {personagem.progresso.nivel}</h3>
+          <p>Você ganhou {niveisGanhos} nível(is). Distribua os pontos recebidos nos atributos abaixo.</p>
+        </div>
+        <div className="attributes-grid">
+          {ATRIBUTOS_DISTRIBUIVEIS.map((atributo) => (
+            <div key={atributo} className="attribute-row">
+              <div>
+                <strong>{atributo}</strong>
+                <span>Inicial: {classeBase[atributo]} | Atual: {personagem.stats[atributo]}</span>
+              </div>
+              <button className="plus-btn" disabled={pontos <= 0} onClick={() => distribuir(atributo)} aria-label={`Aumentar ${atributo}`}>+</button>
+            </div>
+          ))}
+        </div>
+        <div className="level-footer">
+          <span>Pontos disponíveis: <strong>{pontos}</strong></span>
+          <button className="btn" disabled={pontos > 0} onClick={fechar}>Confirmar</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
