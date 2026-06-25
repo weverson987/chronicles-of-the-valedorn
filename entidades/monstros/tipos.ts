@@ -6,6 +6,16 @@ export type GolpeMonstro = {
   dano: number;
 };
 
+export type FugaMonstro = {
+  chance: number;
+  percentualVidaPerdida: number;
+};
+
+export type FalasMonstro = {
+  aoTomarDano?: string[];
+  aoMorrer?: string;
+};
+
 export type Inimigo = {
   id: string;
   nome: string;
@@ -19,4 +29,6 @@ export type Inimigo = {
   xpDrop: number;
   imagem: string;
   golpes: GolpeMonstro[];
+falas?: FalasMonstro;
+  fuga?: FugaMonstro;
 };

@@ -3,8 +3,10 @@ import telaInicial from "../fotos/tela_inicial.png";
 import guerreiroImg from "../entidades/player/guerreiro.png";
 import magoImg from "../entidades/player/mago.png";
 import ladinaImg from "../entidades/player/ladina.png";
-import { GOBLINS, type Inimigo } from "../entidades/monstros/goblin";
+import { GOBLINS } from "../entidades/monstros/goblin";
 import "./App.css";
+
+type Inimigo = (typeof GOBLINS)[number];
 
 type Tela = "menu" | "slots" | "criar" | "continuar" | "combate";
 type ClasseId = "guerreiro" | "mago" | "ladino";
@@ -16,7 +18,7 @@ type Progresso = { nivel: number; xp: number; xpProximo: number; pontosStatus: n
 type Personagem = { nome: string; classe: ClasseId; stats: Stats; habilidade: string; magiaNome: string; imagem: string; progresso: Progresso };
 
 const CLASSES: Record<ClasseId, ClasseConfig> = {
-   guerreiro: { nome: "Guerreiro", base: { vida: 15, defesa: 5, magia: 0, agilidade: 5, ataque: 15, ouro: 30 }, habilidade: "Incansável", magiaNome: "Golpe Arcano", imagem: guerreiroImg },
+  guerreiro: { nome: "Guerreiro", base: { vida: 15, defesa: 5, magia: 0, agilidade: 5, ataque: 15, ouro: 30 }, habilidade: "Incansável", magiaNome: "Golpe Arcano", imagem: guerreiroImg },
   mago: { nome: "Mago", base: { vida: 11, defesa: 3, magia: 15, agilidade: 5, ataque: 5, ouro: 30 }, habilidade: "Fireball", magiaNome: "Fireball", imagem: magoImg },
   ladino: { nome: "Ladino", base: { vida: 10, defesa: 3, magia: 5, agilidade: 10, ataque: 8, ouro: 30 }, habilidade: "Dark Poison", magiaNome: "Dark Poison", imagem: ladinaImg },
 };
@@ -122,7 +124,7 @@ function TelaCombate({ personagem, inimigoBase, onBack }: { personagem: Personag
       setLog((l) => ["Falhou ao fugir!", ...l]);
       ataqueDoMonstro(vidaPlayer);
       return;
-
+    }
     const nomeAcao = acao === "magia" ? player.magiaNome : acao === "habilidade" ? player.habilidade : acao === "item" ? "Item improvisado" : "Ataque básico";
     const bruto = acao === "ataque" ? player.stats.ataque : acao === "magia" ? player.stats.magia + 4 : acao === "habilidade" ? player.stats.ataque + player.stats.magia * 0.6 : player.stats.ataque * 0.7;
     const dano = calcDano(bruto, inimigoBase.defesa);
@@ -136,6 +138,7 @@ function TelaCombate({ personagem, inimigoBase, onBack }: { personagem: Personag
       return;
     }
     ataqueDoMonstro(vidaPlayer);
+    
   }
 
   return (
@@ -169,4 +172,3 @@ function CriarPersonagem({ slot, voltar, voltarMenu }: { slot: number; voltar: (
   }
 
   return <section className="panel"><h2>Criar Personagem</h2><input className="field" placeholder="Nome" value={nome} onChange={(e) => setNome(e.target.value)} /><select className="field" value={classe} onChange={(e) => setClasse(e.target.value as ClasseId)}><option value="guerreiro">Guerreiro</option><option value="mago">Mago</option><option value="ladino">Ladino</option></select><div className="class-preview"><img src={classeAtual.imagem} alt={classeAtual.nome} className="class-img" /><h3>{classeAtual.nome}</h3><p>Vida: {classeAtual.base.vida}</p><p>Defesa: {classeAtual.base.defesa}</p><p>Magia: {classeAtual.base.magia}</p><p>Agilidade: {classeAtual.base.agilidade}</p><p>Ataque: {classeAtual.base.ataque}</p><p>Ouro: {classeAtual.base.ouro}</p><p><strong>Habilidade:</strong> {classeAtual.habilidade}</p><p><strong>Magia:</strong> {classeAtual.magiaNome}</p></div><div className="row"><button className="btn" onClick={salvar}>Criar</button><button className="btn" onClick={voltar}>Voltar</button></div></section>;}
-}
