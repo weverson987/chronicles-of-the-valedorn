@@ -3,7 +3,7 @@ import telaInicial from "../fotos/tela_inicial.png";
 import guerreiroImg from "../entidades/player/guerreiro.png";
 import magoImg from "../entidades/player/mago.png";
 import ladinaImg from "../entidades/player/ladina.png";
-import { GOBLINS } from "../entidades/monstros/goblin";
+import { GOBLINS, GOBLIN_GUERREIRO } from "../entidades/monstros/goblin";
 import { FANTASMA, chanceEncontroFantasma } from "../entidades/monstros/fantasma";
 import type { Inimigo } from "../entidades/monstros/tipos";
 import "./App.css";
@@ -33,12 +33,6 @@ const PROGRESSAO_NIVEL = [
 ];
 
 const calcDano = (base: number, defesa: number) => Math.max(1, Math.floor(base - defesa * 0.4));
-
-function sortearInimigo(inimigos: Inimigo[], nivelJogador: number) {
-  const inimigosDoNivel = inimigos.filter((inimigo) => inimigo.nivel <= nivelJogador);
-  const candidatos = inimigosDoNivel.length > 0 ? inimigosDoNivel : inimigos;
-  return candidatos[Math.floor(Math.random() * candidatos.length)];
-}
 
 const sortearInteiro = (minimo: number, maximo: number) => Math.floor(Math.random() * (maximo - minimo + 1)) + minimo;
 
@@ -106,8 +100,8 @@ export default function App() {
       {tela === "slots" && <TelaSlots onBack={() => setTela("menu")} onSelect={(slot) => { setSlotSelecionado(slot); setTela("criar"); }} />}
       {tela === "criar" && slotSelecionado !== null && <CriarPersonagem slot={slotSelecionado} voltar={() => setTela("slots")} voltarMenu={() => setTela("menu")} />}
       {tela === "continuar" && <TelaContinuar onBack={() => setTela("menu")} onFight={(p) => { setPersonagemAtivo(p); setTela("combate"); }} />}
-      {tela === "combate" && personagemAtivo && <TelaCombate personagem={personagemAtivo} inimigos={GOBLINS} onBack={() => setTela("continuar")} />}      </main>
-  );
+      {tela === "combate" && personagemAtivo && <TelaCombate personagem={personagemAtivo} onBack={() => setTela("continuar")} />}
+    </main>);
 }
 
 function lerSave(slot: number) {
@@ -124,59 +118,92 @@ function TelaContinuar({ onBack, onFight }: { onBack: () => void; onFight: (pers
 
 function barraPct(atual: number, maximo: number) { return Math.max(0, Math.floor((atual / maximo) * 100)); }
 
-function TelaCombate({ personagem, inimigos, onBack }: { personagem: Personagem; inimigos: Inimigo[]; onBack: () => void }) {
-  const inimigoInicial = useMemo(() => sortearInimigo(inimigos, personagem.progresso.nivel), [inimigos, personagem.progresso.nivel]);
+type InimigoEmCombate = {
+  inimigo: Inimigo;
+  vida: number;
+};
+
+function criarInimigoEmCombate(inimigo: Inimigo): InimigoEmCombate {
+  return { inimigo: { ...inimigo }, vida: inimigo.vidaMaxima };
+}
+
+function TelaCombate({ personagem, onBack }: { personagem: Personagem; onBack: () => void }) {
+  const inimigoInicial = useMemo(() => criarEncontroMonstro(personagem.progresso.nivel), [personagem.progresso.nivel]);
   const [player, setPlayer] = useState(personagem);
-  const [inimigosAtivos, setInimigosAtivos] = useState<Inimigo[]>([
-  inimigoInicial
-]);
+  const [inimigosAtivos, setInimigosAtivos] = useState<InimigoEmCombate[]>([criarInimigoEmCombate(inimigoInicial)]);
+  const [alvoSelecionado, setAlvoSelecionado] = useState(0);
   const [vidaPlayer, setVidaPlayer] = useState(personagem.stats.vida);
-  const [vidaInimigo, setVidaInimigo] = useState(inimigoInicial.vidaMaxima);
   const [log, setLog] = useState<string[]>([`${personagem.nome} encontrou ${inimigoInicial.nome} Lv.${inimigoInicial.nivel}.`]);
   const [turnosInvencivelInimigo, setTurnosInvencivelInimigo] = useState(0);
   const [turnosSemAtacar, setTurnosSemAtacar] = useState(0);
-  
-function iniciarNovoCombate(personagemAtual: Personagem = player) {
-    const proximoInimigo = sortearInimigo(inimigos, personagemAtual.progresso.nivel);
-    setInimigosAtivos((inimigos) => [...inimigos, proximoInimigo]);
-    setVidaInimigo(proximoInimigo.vidaMaxima);
+
+  const alvoAtual = inimigosAtivos[alvoSelecionado] ?? inimigosAtivos[0];
+  const combateEncerrado = inimigosAtivos.length === 0;
+
+  function iniciarNovoCombate(personagemAtual: Personagem = player) {
+    const proximoInimigo = criarEncontroMonstro(personagemAtual.progresso.nivel);
+    setInimigosAtivos([criarInimigoEmCombate(proximoInimigo)]);
+    setAlvoSelecionado(0);
+    setTurnosInvencivelInimigo(0);
+    setTurnosSemAtacar(0);
     setLog((l) => [`${personagemAtual.nome} encontrou ${proximoInimigo.nome} Lv.${proximoInimigo.nivel}.`, ...l]);
   }
 
-function ataqueDoMonstro(vidaAtual: number) {
-    const golpe = inimigoBase.golpes[log.length % inimigoBase.golpes.length];
-    const dano = calcDano(golpe.dano + (golpe.tipo === "magia" ? inimigoBase.magia : inimigoBase.ataque), player.stats.defesa);
-    const novaVida = Math.max(0, vidaAtual - dano);
-    setVidaPlayer(novaVida);
-    setLog((l) => [`${inimigoBase.nome} usou ${golpe.nome} e causou ${dano} de dano.`, ...l]);
-    if (golpe.efeito === "invencivel") {
-      setTurnosInvencivelInimigo(1);
-      setLog((l) => [`${inimigoBase.nome} ficou invencível por 1 turno.`, ...l]);
-    }
-    if (golpe.efeito === "sem_atacar") {
-      setTurnosSemAtacar(1);
-      setLog((l) => [`${player.nome} ficou 1 turno sem atacar.`, ...l]);
-    }
-    if (novaVida <= 0) setLog((l) => [`${player.nome} foi derrotado.`, ...l]);
+  function ataqueDosMonstros(vidaAtual: number) {
+    let vidaRestante = vidaAtual;
+    inimigosAtivos.forEach(({ inimigo }, indice) => {
+      if (vidaRestante <= 0) return;
+
+      const golpe = inimigo.golpes[(log.length + indice) % inimigo.golpes.length];
+      if (golpe.nome === "Invocar Goblin Guerreiro") {
+        setInimigosAtivos((lista) => {
+          const guerreiroJaInvocado = lista.some((item) => item.inimigo.id === GOBLIN_GUERREIRO.id);
+          if (guerreiroJaInvocado) return lista;
+          return [...lista, criarInimigoEmCombate(GOBLIN_GUERREIRO)];
+        });
+        setLog((l) => [`${inimigo.nome} invocou um ${GOBLIN_GUERREIRO.nome}!`, ...l]);
+        return;
+      }
+
+      const dano = calcDano(golpe.dano + (golpe.tipo === "magia" ? inimigo.magia : inimigo.ataque), player.stats.defesa);
+      vidaRestante = Math.max(0, vidaRestante - dano);
+      setLog((l) => [`${inimigo.nome} usou ${golpe.nome} e causou ${dano} de dano.`, ...l]);
+      if (golpe.efeito === "invencivel") {
+        setTurnosInvencivelInimigo(1);
+        setLog((l) => [`${inimigo.nome} ficou invencível por 1 turno.`, ...l]);
+      }
+      if (golpe.efeito === "sem_atacar") {
+        setTurnosSemAtacar(1);
+        setLog((l) => [`${player.nome} ficou 1 turno sem atacar.`, ...l]);
+      }
+    });
+
+    setVidaPlayer(vidaRestante);
+    if (vidaRestante <= 0) setLog((l) => [`${player.nome} foi derrotado.`, ...l]);
   }
 
   function executarAcao(acao: AcaoCombate) {
-    if (vidaPlayer <= 0 || vidaInimigo <= 0) return;
+    if (vidaPlayer <= 0 || combateEncerrado || !alvoAtual) return;
     if (turnosSemAtacar > 0 && acao !== "fugir") {
       setTurnosSemAtacar((turnos) => Math.max(0, turnos - 1));
       setLog((l) => ["Você está assustado e perdeu o turno sem atacar.", ...l]);
-      ataqueDoMonstro(vidaPlayer);
+      ataqueDosMonstros(vidaPlayer);
       return;
     }
     if (acao === "fugir") {
+      const inimigoMaisAgil = Math.max(...inimigosAtivos.map(({ inimigo }) => inimigo.agilidade));
       const chanceFuga = player.stats.agilidade + player.progresso.nivel * 2;
-      if (chanceFuga >= inimigoBase.agilidade + 4) { setLog((l) => ["Você fugiu com sucesso.", ...l]); onBack();
-         return;
-     }
+      if (chanceFuga >= inimigoMaisAgil + 4) {
+        setLog((l) => ["Você fugiu com sucesso.", ...l]);
+        onBack();
+        return;
+      }
       setLog((l) => ["Falhou ao fugir!", ...l]);
-      ataqueDoMonstro(vidaPlayer);
+      ataqueDosMonstros(vidaPlayer);
       return;
     }
+
+    const inimigoBase = alvoAtual.inimigo;
     const nomeAcao = acao === "magia" ? player.magiaNome : acao === "habilidade" ? player.habilidade : acao === "item" ? "Item improvisado" : "Ataque básico";
     const bruto = acao === "ataque" ? player.stats.ataque : acao === "magia" ? player.stats.magia + 4 : acao === "habilidade" ? player.stats.ataque + player.stats.magia * 0.6 : player.stats.ataque * 0.7;
     const danoCalculado = calcDano(bruto, inimigoBase.defesa);
@@ -184,16 +211,25 @@ function ataqueDoMonstro(vidaAtual: number) {
     const danoReduzido = acaoFisica && inimigoBase.reducaoDanoFisico ? Math.max(1, Math.floor(danoCalculado * inimigoBase.reducaoDanoFisico)) : danoCalculado;
     const estaInvencivel = turnosInvencivelInimigo > 0;
     const dano = estaInvencivel ? 0 : danoReduzido;
-    if (estaInvencivel) setTurnosInvencivelInimigo((turnos) => Math.max(0, turnos - 1));    const novaVidaInimigo = Math.max(0, vidaInimigo - dano);
-    setVidaInimigo(novaVidaInimigo);
-    setLog((l) => [`Você usou ${nomeAcao} e causou ${dano} de dano.`, ...l]);
-    if (novaVidaInimigo <= 0) {
+    if (estaInvencivel) setTurnosInvencivelInimigo((turnos) => Math.max(0, turnos - 1));
+
+    const novaVidaAlvo = Math.max(0, alvoAtual.vida - dano);
+    setLog((l) => [`Você usou ${nomeAcao} em ${inimigoBase.nome} e causou ${dano} de dano.`, ...l]);
+
+    if (novaVidaAlvo <= 0) {
       const atualizado = aplicarXp({ ...player, stats: { ...player.stats, ouro: player.stats.ouro + inimigoBase.ouroDrop } }, inimigoBase.xpDrop);
       setPlayer(atualizado);
       const falaMorte = inimigoBase.falas?.aoMorrer ? `${inimigoBase.nome}: ${inimigoBase.falas.aoMorrer}` : `${inimigoBase.nome} foi derrotado!`;
-      setLog((l) => [`${falaMorte} +${inimigoBase.xpDrop} XP, +${inimigoBase.ouroDrop} ouro.`, ...l]);      return;
+           setLog((l) => [`${falaMorte} +${inimigoBase.xpDrop} XP, +${inimigoBase.ouroDrop} ouro.`, ...l]);
+      setInimigosAtivos((lista) => {
+        const vivos = lista.filter((_, indice) => indice !== alvoSelecionado);
+        setAlvoSelecionado(Math.max(0, Math.min(alvoSelecionado, vivos.length - 1)));
+        return vivos;
+      });
+      return;
     }
-    ataqueDoMonstro(vidaPlayer);
+    setInimigosAtivos((lista) => lista.map((item, indice) => (indice === alvoSelecionado ? { ...item, vida: novaVidaAlvo } : item)));
+    ataqueDosMonstros(vidaPlayer);
     
   }
 
@@ -202,13 +238,26 @@ function ataqueDoMonstro(vidaAtual: number) {
       <h2>Combate</h2>
       <div className="combatants">
         <div className="fighter-card"><img src={player.imagem} alt={player.nome} className="fighter-img" /><strong>{player.nome}</strong><span>{CLASSES[player.classe].nome} Lv.{player.progresso.nivel}</span></div>
-        <div className="fighter-card"><img src={inimigoBase.imagem} alt={inimigoBase.nome} className="fighter-img" /><strong>{inimigoBase.nome}</strong><span>Lv.{inimigoBase.nivel}</span></div>
+        {inimigosAtivos.map(({ inimigo, vida }, indice) => (
+          <button
+            key={`${inimigo.id}-${indice}`}
+            type="button"
+            className={`fighter-card enemy-target ${indice === alvoSelecionado ? "selected" : ""}`}
+            onClick={() => setAlvoSelecionado(indice)}
+          >
+            <img src={inimigo.imagem} alt={inimigo.nome} className="fighter-img" />
+            <strong>{inimigo.nome}</strong>
+            <span>Lv.{inimigo.nivel}</span>
+            <span>Vida: {vida}/{inimigo.vidaMaxima}</span>
+          </button>
+        ))}
       </div>
       <div className="novo-jogo-info">Ouro: <strong>{player.stats.ouro}</strong> | XP: <strong>{player.progresso.xp}/{player.progresso.xpProximo}</strong> | Pontos: <strong>{player.progresso.pontosStatus}</strong></div>
       <div className="hp-wrap"><span>Sua vida: {vidaPlayer}/{player.stats.vida}</span><div className="hp-bar"><div style={{ width: `${barraPct(vidaPlayer, player.stats.vida)}%` }} /></div></div>
-      <div className="hp-wrap"><span>Vida inimigo: {vidaInimigo}/{inimigoBase.vidaMaxima}</span><div className="hp-bar enemy"><div style={{ width: `${barraPct(vidaInimigo, inimigoBase.vidaMaxima)}%` }} /></div></div>
-      <div className="row">{(["ataque", "magia", "habilidade", "item", "fugir"] as AcaoCombate[]).map((a) => <button key={a} className="btn" disabled={vidaPlayer <= 0 || vidaInimigo <= 0} onClick={() => executarAcao(a)}>{a}</button>)}</div>
-      <div className="row"><button className="btn" disabled={vidaPlayer <= 0 || vidaInimigo > 0} onClick={() => iniciarNovoCombate(player)}>Procurar outro inimigo</button></div>      <div className="log">{log.slice(0, 8).map((l, i) => <p key={i}>{l}</p>)}</div>  
+      {alvoAtual && <div className="hp-wrap"><span>Alvo: {alvoAtual.inimigo.nome} ({alvoAtual.vida}/{alvoAtual.inimigo.vidaMaxima})</span><div className="hp-bar enemy"><div style={{ width: `${barraPct(alvoAtual.vida, alvoAtual.inimigo.vidaMaxima)}%` }} /></div></div>}
+      <div className="row">{(["ataque", "magia", "habilidade", "item", "fugir"] as AcaoCombate[]).map((a) => <button key={a} className="btn" disabled={vidaPlayer <= 0 || combateEncerrado} onClick={() => executarAcao(a)}>{a}</button>)}</div>
+      <div className="row"><button className="btn" disabled={vidaPlayer <= 0 || !combateEncerrado} onClick={() => iniciarNovoCombate(player)}>Procurar outro inimigo</button></div>
+      <div className="log">{log.slice(0, 8).map((l, i) => <p key={i}>{l}</p>)}</div>
       <button className="btn" onClick={onBack}>Voltar</button>
     </section>
   );
@@ -221,10 +270,16 @@ function CriarPersonagem({ slot, voltar, voltarMenu }: { slot: number; voltar: (
 
   function salvar() {
     if (!nome.trim()) return alert("Digite um nome.");
-    const personagem: Personagem = { nome, classe, stats: { ...classeAtual.base }, habilidade: classeAtual.habilidade, magiaNome: classeAtual.magiaNome, imagem: classeAtual.imagem, progresso: { nivel: 1, xp: 0, xpProximo: 100, pontosStatus: 0 } };    localStorage.setItem(`save${slot}`, JSON.stringify(personagem));
+    const personagem: Personagem = { nome, classe, stats: { ...classeAtual.base }, habilidade: classeAtual.habilidade, magiaNome: classeAtual.magiaNome, imagem: classeAtual.imagem, progresso: { nivel: 1, xp: 0, xpProximo: 100, pontosStatus: 0 } };
+      localStorage.setItem(`save${slot}`, JSON.stringify(personagem));
     alert("Personagem criado!");
 
     voltarMenu();
   }
 
-  return <section className="panel"><h2>Criar Personagem</h2><input className="field" placeholder="Nome" value={nome} onChange={(e) => setNome(e.target.value)} /><select className="field" value={classe} onChange={(e) => setClasse(e.target.value as ClasseId)}><option value="guerreiro">Guerreiro</option><option value="mago">Mago</option><option value="ladino">Ladino</option></select><div className="class-preview"><img src={classeAtual.imagem} alt={classeAtual.nome} className="class-img" /><h3>{classeAtual.nome}</h3><p>Vida: {classeAtual.base.vida}</p><p>Defesa: {classeAtual.base.defesa}</p><p>Magia: {classeAtual.base.magia}</p><p>Agilidade: {classeAtual.base.agilidade}</p><p>Ataque: {classeAtual.base.ataque}</p><p>Ouro: {classeAtual.base.ouro}</p><p><strong>Habilidade:</strong> {classeAtual.habilidade}</p><p><strong>Magia:</strong> {classeAtual.magiaNome}</p></div><div className="row"><button className="btn" onClick={salvar}>Criar</button><button className="btn" onClick={voltar}>Voltar</button></div></section>;}
+  return <section className="panel"><h2>Criar Personagem</h2><input className="field" placeholder="Nome" value={nome} onChange={(e) => setNome(e.target.value)}  />
+  <select className="field" value={classe} onChange={(e) => setClasse(e.target.value as ClasseId)}>
+  <option value="guerreiro">Guerreiro</option><option value="mago">Mago</option>
+    <option value="ladino">Ladino</option></select><div className="class-preview">
+      <img src={classeAtual.imagem} alt={classeAtual.nome} className="class-img" />
+      <h3>{classeAtual.nome}</h3><p>Vida: {classeAtual.base.vida}</p><p>Defesa: {classeAtual.base.defesa}</p><p>Magia: {classeAtual.base.magia}</p><p>Agilidade: {classeAtual.base.agilidade}</p><p>Ataque: {classeAtual.base.ataque}</p><p>Ouro: {classeAtual.base.ouro}</p><p><strong>Habilidade:</strong> {classeAtual.habilidade}</p><p><strong>Magia:</strong> {classeAtual.magiaNome}</p></div><div className="row"><button className="btn" onClick={salvar}>Criar</button><button className="btn" onClick={voltar}>Voltar</button></div></section>;}
