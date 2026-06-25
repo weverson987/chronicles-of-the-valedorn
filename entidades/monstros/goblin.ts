@@ -1,12 +1,11 @@
-import type { export Inimigo } from "./tipos.ts";
-import goblinXamaImg from "./goblin mago.png";
-import goblinGuerreiroImg from "./goblin guerreiro.png";
+import type { Inimigo } from "./tipos.ts";
+import goblinXamaImg from "./goblin_mago.png";
+import goblinGuerreiroImg from "./goblin_guerreiro.png";
 
 export type FaixaNivelGoblin = {
   nivelMinimo: number;
   nivelMaximo: number | null;
   chanceEncontro: number;
-
 };
 
 export const CHANCES_ENCONTRO_GOBLIN: FaixaNivelGoblin[] = [
@@ -27,7 +26,7 @@ export const GOBLIN_XAMA: Inimigo = {
   id: "goblin_xama",
   nome: "Goblin Xamã",
   nivel: 1,
-   vidaMaxima: 20,
+  vidaMaxima: 20,
   ataque: 1,
   defesa: 1,
   magia: 2,
@@ -57,7 +56,7 @@ export const GOBLIN_GUERREIRO: Inimigo = {
   vidaMaxima: 35,
   ataque: 4,
   defesa: 2,
-   magia: 0,
+  magia: 0,
   agilidade: 5,
   ouroDrop: 5,
   xpDrop: 5,
