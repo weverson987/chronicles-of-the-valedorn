@@ -1,9 +1,12 @@
 export type TipoGolpe = "ataque" | "magia" | "habilidade";
 
+export type EfeitoGolpeMonstro = "invencivel" | "sem_atacar";
+
 export type GolpeMonstro = {
   nome: string;
   tipo: TipoGolpe;
   dano: number;
+  efeito?: EfeitoGolpeMonstro;
 };
 
 export type FugaMonstro = {
@@ -29,6 +32,8 @@ export type Inimigo = {
   xpDrop: number;
   imagem: string;
   golpes: GolpeMonstro[];
-falas?: FalasMonstro;
+  falas?: FalasMonstro;
   fuga?: FugaMonstro;
+  reducaoDanoFisico?: number;
+  nuncaFoge?: boolean;
 };
