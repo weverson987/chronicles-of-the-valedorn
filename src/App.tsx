@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import telaInicial from "../fotos/tela_inicial.png";
 import guerreiroImg from "../entidades/player/guerreiro.png";
 import magoImg from "../entidades/player/mago.png";
@@ -155,7 +155,7 @@ type MomentoHistoria = {
   escolhas?: { texto: string; resposta: string }[];
 };
 
-const VELOCIDADE_DIGITACAO = 22;
+const VELOCIDADE_DIGITACAO = 42;
 
 function montarHistoria(nome: string): MomentoHistoria[] {
   return [
@@ -205,18 +205,19 @@ function TelaHistoria({ personagem, onFinish }: { personagem: Personagem; onFini
   const momento = momentos[indice];
   const textoAtual = respostaEscolha ?? momento.texto ?? "";
   const historiaTerminou = indice >= momentos.length - 1 && digitacaoCompleta;
+  const concluirDigitacao = useCallback(() => setDigitacaoCompleta(true), []);
 
-  const irParaMomento = (proximoIndice: number) => {
+  const irParaMomento = useCallback((proximoIndice: number) => {
     setDigitacaoCompleta(false);
     setRespostaEscolha(null);
     setIndice(proximoIndice);
-  };
+  }, []);
 
   useEffect(() => {
     if (!momento.duracaoAutomatica) return;
     const timer = window.setTimeout(() => irParaMomento(Math.min(indice + 1, momentos.length - 1)), momento.duracaoAutomatica);
     return () => window.clearTimeout(timer);
-  }, [indice, momento.duracaoAutomatica, momentos.length]);
+  }, [indice, irParaMomento, momento.duracaoAutomatica, momentos.length]);
 
   const avancar = () => {
     if (!digitacaoCompleta || momento.duracaoAutomatica || (momento.escolhas && !respostaEscolha)) return;
@@ -229,8 +230,7 @@ function TelaHistoria({ personagem, onFinish }: { personagem: Personagem; onFini
       <div className="story-vignette" />
       {textoAtual && <div className="story-dialog" onClick={avancar}>
         {momento.falante && !respostaEscolha && <strong className="story-speaker">{momento.falante}:</strong>}
-        <TextoDigitado key={`${indice}-${respostaEscolha ?? "base"}`} texto={textoAtual} ativo onDone={() => setDigitacaoCompleta(true)} />
-        {digitacaoCompleta && momento.escolhas && !respostaEscolha && <div className="story-choices">{momento.escolhas.map((escolha) => <button key={escolha.texto} className="btn" onClick={(e) => { e.stopPropagation(); setDigitacaoCompleta(false); setRespostaEscolha(escolha.resposta); }}>{escolha.texto}</button>)}</div>}
+        <TextoDigitado key={`${indice}-${respostaEscolha ?? "base"}`} texto={textoAtual} ativo onDone={concluirDigitacao} />        {digitacaoCompleta && momento.escolhas && !respostaEscolha && <div className="story-choices">{momento.escolhas.map((escolha) => <button key={escolha.texto} className="btn" onClick={(e) => { e.stopPropagation(); setDigitacaoCompleta(false); setRespostaEscolha(escolha.resposta); }}>{escolha.texto}</button>)}</div>}
         {digitacaoCompleta && (!momento.escolhas || respostaEscolha) && <span className="story-hint">Clique para continuar</span>}
       </div>}
       {historiaTerminou && <div className="story-actions"><button className="btn" onClick={onFinish}>Ir ao mercado</button><button className="btn" onClick={onFinish}>Ir para a entrada da cidade</button></div>}
