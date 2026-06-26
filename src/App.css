@@ -852,3 +852,55 @@
   margin: 3px 0;
   font-size: 14px;
 }
+.story-combat-screen {
+  background-image: none !important;
+  background-color: transparent;
+}
+
+.story-combat-screen .story-vignette {
+  display: none;
+}
+
+.story-combat-screen .story-dialog {
+  width: min(585px, calc(100vw - 32px));
+  max-height: none;
+  overflow: visible;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.story-combat-screen .typewriter-text {
+  display: none;
+}
+
+.story-combat-screen .story-speaker,
+.story-combat-screen .story-hint {
+  display: none;
+}
+
+.story-combat-screen .story-combat {
+  border: 1px solid #9b6a2e;
+  background: #130d08;
+  padding: 34px 18px 18px;
+}
+
+.story-combat-screen .story-combat::before {
+  content: "Combate";
+  display: block;
+  margin-bottom: 18px;
+  color: #ffd88f;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.story-portrait {
+  display: block;
+  width: min(240px, 60vw);
+  max-height: 260px;
+  object-fit: contain;
+  margin: 0 auto 14px;
+  filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.65));
+}

@@ -10,6 +10,9 @@ import mercadoImg from "../estruturas/mercado.png";
 import saidaMuralhaImg from "../estruturas/saida_muralha.png";
 import vilaImg from "../estruturas/vila.png";
 import forjaImg from "../estruturas/forja.png";
+import florestaSombriaImg from "../estruturas/floresta_sombria.jpg";
+import ritualImg from "../estruturas/ritual.png";
+import taylorMachucadoImg from "../entidades/npc/taylor_machucado.png";
 import { GOBLINS, GOBLIN_GUERREIRO, chanceEncontroGoblin } from "../entidades/monstros/goblin";
 import { FANTASMA, chanceEncontroFantasma } from "../entidades/monstros/fantasma";
 import type { Inimigo } from "../entidades/monstros/tipos";
@@ -168,7 +171,8 @@ type MomentoHistoria = {
   fecharTela?: boolean;
   escolhas?: { texto: string; resposta: string }[];
   tipo?: "mercado" | "portao" | "combateHistoria";
-  inimigoHistoria?: "goblin" | "fantasma";
+  inimigoHistoria?: "goblin" | "fantasma" | "aleatorio";
+  retrato?: string;
 };
 
 const VELOCIDADE_DIGITACAO = 42;
@@ -235,6 +239,32 @@ function montarHistoria(nome: string): MomentoHistoria[] {
       { texto: "Abrir porta", resposta: "Você segura a maçaneta fria e se prepara para abrir a porta." },
       { texto: "Voltar e investigar os rastros de sangue", resposta: "Você decide voltar para seguir os rastros de sangue." },
     ] },
+        { limparAntes: true, fundo: forjaImg, texto: "Você se depara com uma escadaria que leva ao subsolo." },
+    { limparAntes: true, fundo: forjaImg, texto: `Enquanto ${nome} desce as escadas, ele ouve uma voz meio ofegante ecoando nas paredes daquela escadaria.` },
+    { limparAntes: true, fundo: forjaImg, texto: `Com cautela, porém apreensivo, ${nome} continua a descer as escadas e se depara com um ser meio diferente: era baixo, com um bigode grande, além de algumas poucas mechas brancas na cabeça.`, retrato: taylorMachucadoImg },
+    { fundo: forjaImg, falante: "Taylor", texto: "*suspiro…" },
+    { fundo: forjaImg, falante: nome, texto: "O que aconteceu aqui ?!?" },
+    { fundo: forjaImg, falante: "Taylor", texto: "Por fa..vor, *cof cof*" },
+    { limparAntes: true, fundo: forjaImg, falante: "Taylor", texto: "Eles levaram.. todos.. eu não consegui proteger ninguém, eu prometo protegê los" },
+    { limparAntes: true, fundo: forjaImg, falante: "Taylor", texto: "Eu sabia… aquele homem não é *cof cof* confiável." },
+    { limparAntes: true, fundo: forjaImg, falante: nome, texto: "Que homem?? Me diga por favor!" },
+    { fundo: forjaImg, falante: "Taylor", texto: "A floresta *cof cof* levaram todos… depressa", escolhas: [
+      { texto: "Entregar uma poção ao anão", resposta: "Entregar poção" },
+      { texto: "Voltar e seguir os rastros de sangue para a floresta", resposta: "Voltar e seguir os rastros de sangue" },
+    ] },
+    { limparAntes: true, fundo: forjaImg, texto: `${nome} ajuda o anão com uma poção.` },
+    { limparAntes: true, fundo: forjaImg, falante: "Taylor", texto: "Obrigado aventureiro, mas já não sou o mesmo de antes. Peço que você ajude as pessoas dessa vila.", escolhas: [
+      { texto: "Voltar e seguir os rastros de sangue para a floresta", resposta: "Voltar e seguir os rastros de sangue" },
+    ] },
+    { limparAntes: true, fundo: vilaImg, texto: "Você segue andando pela estrada principal que cruza toda a vila e nota várias marcas de sangue. Por onde passa, vê marcas de sangue e destruição. É quase como se não houvesse um tempo de reação." },
+    { limparAntes: true, fundo: florestaSombriaImg, texto: "Os rastros de sangue levam até a orla da floresta sombria, onde sombras se movem entre os troncos." },
+    { fundo: florestaSombriaImg, tipo: "combateHistoria", inimigoHistoria: "aleatorio", texto: "Um inimigo surge dos rastros." },
+    { fundo: florestaSombriaImg, tipo: "combateHistoria", inimigoHistoria: "aleatorio", texto: "Outro inimigo bloqueia o caminho." },
+    { fundo: florestaSombriaImg, tipo: "combateHistoria", inimigoHistoria: "aleatorio", texto: "Mais uma criatura sai das ruínas da estrada." },
+    { fundo: florestaSombriaImg, tipo: "combateHistoria", inimigoHistoria: "aleatorio", texto: "Você é cercado novamente." },
+    { fundo: florestaSombriaImg, tipo: "combateHistoria", inimigoHistoria: "aleatorio", texto: "A emboscada continua." },
+    { fundo: florestaSombriaImg, tipo: "combateHistoria", inimigoHistoria: "aleatorio", texto: "Uma presença extra surge da névoa." },
+    { limparAntes: true, fundo: florestaSombriaImg, texto: "Com os inimigos derrotados, o caminho pela floresta fica aberto por enquanto." },
   ];
 }
 
@@ -324,7 +354,26 @@ function TelaHistoria({ personagem, slot, onFinish }: { personagem: Personagem; 
       return;
     }
     if (resposta === "Adentrar mais fundo na forja") {
-      irParaMomento(indice === 36 ? 44 : indice + 1);
+        irParaMomento(indice + 1);
+      return;
+    }
+    if (resposta === "Voltar e seguir os rastros de sangue") {
+      const indiceRastros = momentos.findIndex((item) => item.texto?.startsWith("Você segue andando pela estrada principal"));
+      irParaMomento(indiceRastros >= 0 ? indiceRastros : indice + 1);
+      return;
+    }
+    if (resposta === "Entregar poção") {
+      setPersonagemHistoria((atual) => {
+        const itemParaEntregar = atual.inventario.find((item) => item.id === "pocao_media" || item.id === "pocao_cura");
+        if (!itemParaEntregar) return atual;
+        return {
+          ...atual,
+          inventario: atual.inventario
+            .map((item) => item.id === itemParaEntregar.id ? { ...item, quantidade: item.quantidade - 1 } : item)
+            .filter((item) => item.quantidade > 0),
+        };
+      });
+      irParaMomento(indice + 1);
       return;
     }
     setDigitacaoCompleta(false);
@@ -338,8 +387,9 @@ function TelaHistoria({ personagem, slot, onFinish }: { personagem: Personagem; 
     });
   };
   return (
-    <section className={`story-screen ${momento.fecharTela ? "story-blackout" : ""} ${momento.fundo ? "story-has-background" : ""}`} style={momento.fundo ? { backgroundImage: `url(${momento.fundo})` } : undefined}>      <div className="story-vignette" />
+    <section className={`story-screen ${momento.fecharTela ? "story-blackout" : ""} ${momento.fundo && momento.tipo !== "combateHistoria" ? "story-has-background" : ""} ${momento.tipo === "combateHistoria" ? "story-combat-screen" : ""}`} style={momento.fundo && momento.tipo !== "combateHistoria" ? { backgroundImage: `url(${momento.fundo})` } : undefined}>      <div className="story-vignette" />
       {textoAtual && <div className="story-dialog" onClick={avancar}>
+        {momento.retrato && <img src={momento.retrato} alt="Taylor machucado" className="story-portrait" />}
         {momento.falante && !respostaEscolha && <strong className="story-speaker">{momento.falante}:</strong>}
         <TextoDigitado key={`${indice}-${respostaEscolha ?? "base"}`} texto={textoAtual} ativo onDone={concluirDigitacao} />        {digitacaoCompleta && momento.escolhas && !respostaEscolha && <div className="story-choices">{momento.escolhas.map((escolha) => <button key={escolha.texto} className="btn" onClick={(e) => { e.stopPropagation(); selecionarEscolha(escolha.resposta); }}>{escolha.texto}</button>)}</div>}
         {digitacaoCompleta && momento.tipo === "mercado" && <MercadoHistoria personagem={personagemHistoria} onComprar={comprarItem} onSair={() => irParaMomento(indice + 1)} />}
@@ -351,8 +401,12 @@ function TelaHistoria({ personagem, slot, onFinish }: { personagem: Personagem; 
   );
 }
 
-function CombateHistoria({ personagem, inimigoTipo, onVencer, onMorrer }: { personagem: Personagem; inimigoTipo: "goblin" | "fantasma"; onVencer: (personagemAtualizado: Personagem) => void; onMorrer: () => void }) {
-  const inimigo = useMemo(() => inimigoTipo === "fantasma" ? criarFantasma(personagem.progresso.nivel) : { ...GOBLIN_GUERREIRO, nivel: personagem.progresso.nivel }, [inimigoTipo, personagem.progresso.nivel]);
+function CombateHistoria({ personagem, inimigoTipo, onVencer, onMorrer }: { personagem: Personagem; inimigoTipo: "goblin" | "fantasma" | "aleatorio"; onVencer: (personagemAtualizado: Personagem) => void; onMorrer: () => void }) {
+  const inimigo = useMemo(() => {
+    if (inimigoTipo === "fantasma") return criarFantasma(personagem.progresso.nivel);
+    if (inimigoTipo === "aleatorio") return criarEncontroMonstro(personagem.progresso.nivel);
+    return criarGoblin(personagem.progresso.nivel);
+  }, [inimigoTipo, personagem.progresso.nivel]);
   const [vidaInimigo, setVidaInimigo] = useState(inimigo.vidaMaxima);
   const [vidaPlayer, setVidaPlayer] = useState(personagem.stats.vida);
   const [log, setLog] = useState<string[]>([`Um ${inimigo.nome} apareceu!`]);
@@ -487,9 +541,7 @@ function TelaCombate({ personagem, slot, onBack, onDeath }: { personagem: Person
       const golpe = inimigo.golpes[(log.length + indice) % inimigo.golpes.length];
       if (golpe.nome === "Invocar Goblin Guerreiro") {
         setInimigosAtivos((lista) => {
-          const guerreiroJaInvocado = lista.some((item) => item.inimigo.id === GOBLIN_GUERREIRO.id);
-          if (guerreiroJaInvocado) return lista;
-          return [...lista, criarInimigoEmCombate(GOBLIN_GUERREIRO)];
+          return [...lista, criarInimigoEmCombate({ ...GOBLIN_GUERREIRO, nivel: player.progresso.nivel, xpDrop: sortearInteiro(4, 5) })];
         });
         setLog((l) => [`${inimigo.nome} invocou um ${GOBLIN_GUERREIRO.nome}!`, ...l]);
         return;
