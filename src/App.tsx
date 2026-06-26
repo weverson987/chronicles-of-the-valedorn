@@ -3,13 +3,16 @@ import telaInicial from "../fotos/tela_inicial.png";
 import guerreiroImg from "../entidades/player/guerreiro.png";
 import magoImg from "../entidades/player/mago.png";
 import ladinaImg from "../entidades/player/ladina.png";
+import guildaImg from "../estruturas/guilda_de_aventureiros.png";
+import melquiorImg from "../estruturas/Melquior.png";
+import casteloImg from "../estruturas/castelo.png";
 import { GOBLINS, GOBLIN_GUERREIRO, chanceEncontroGoblin } from "../entidades/monstros/goblin";
 import { FANTASMA, chanceEncontroFantasma } from "../entidades/monstros/fantasma";
 import type { Inimigo } from "../entidades/monstros/tipos";
 import "./App.css";
 
 
-type Tela = "menu" | "slots" | "criar" | "continuar" | "combate";
+type Tela = "menu" | "slots" | "criar" | "continuar" | "historia" | "combate";
 type ClasseId = "guerreiro" | "mago" | "ladino";
 type AcaoCombate = "ataque" | "magia" | "habilidade" | "item" | "fugir";
 type AtributoDistribuivel = "vida" | "defesa" | "magia" | "agilidade" | "ataque";
@@ -136,10 +139,105 @@ export default function App() {
         </section>
       )}
       {tela === "slots" && <TelaSlots onBack={() => setTela("menu")} onSelect={(slot) => { setSlotSelecionado(slot); setTela("criar"); }} />}
-      {tela === "criar" && slotSelecionado !== null && <CriarPersonagem slot={slotSelecionado} voltar={() => setTela("slots")} iniciarHistoria={(personagem) => { setPersonagemAtivo(personagem); setSlotAtivo(slotSelecionado); setTela("combate"); }} />}
+      {tela === "criar" && slotSelecionado !== null && <CriarPersonagem slot={slotSelecionado} voltar={() => setTela("slots")} iniciarHistoria={(personagem) => { setPersonagemAtivo(personagem); setSlotAtivo(slotSelecionado); setTela("historia"); }} />}
       {tela === "continuar" && <TelaContinuar onBack={() => setTela("menu")} onFight={(p, slot) => { setPersonagemAtivo(p); setSlotAtivo(slot); setTela("combate"); }} />}
+      {tela === "historia" && personagemAtivo && <TelaHistoria personagem={personagemAtivo} onFinish={() => setTela("combate")} />}
       {tela === "combate" && personagemAtivo && slotAtivo !== null && <TelaCombate personagem={personagemAtivo} slot={slotAtivo} onBack={() => setTela("continuar")} onDeath={() => { localStorage.removeItem(`save${slotAtivo}`); setPersonagemAtivo(null); setSlotAtivo(null); setTela("menu"); }} />}    </main>);
 }
+
+type MomentoHistoria = {
+  fundo?: string;
+  texto?: string;
+  falante?: string;
+  duracaoAutomatica?: number;
+  limparAntes?: boolean;
+  fecharTela?: boolean;
+  escolhas?: { texto: string; resposta: string }[];
+};
+
+const VELOCIDADE_DIGITACAO = 22;
+
+function montarHistoria(nome: string): MomentoHistoria[] {
+  return [
+    { texto: `Olá aventureiro(a) ${nome}! …\n\nVocê está no continente de Valedorn. Onde diversas criaturas e seres mágicos andam sobre o alvorecer do dia, como os humanos, elfos e anões, além de monstros que estão sempre à espreita nos locais mais diversos desse vasto continente…` },
+    { limparAntes: true, texto: "Sua história começa aqui, no centro do reino de Kaestral, cercado por muralhas gigantescas, sua paisagem é repleta de casas simples e modestas com um castelo na parte mais alta do reino, onde vive o rei dos humanos, Rei Emanoel II…\n\nPor muito tempo você foi um andarilho, mas, um fenômeno estranho chamou a atenção de todos os reinos de Valedorn… Vilarejos inteiros começaram a desaparecer, florestas foram queimadas e minas de metais preciosos foram subitamente fechadas." },
+    { limparAntes: true, texto: "A guilda de aventureiros então começa a buscar novos candidatos para buscarem pistas do que estava acontecendo a pedido do rei…\n\nVocê então se registra na guilda e ao entrar se depara com isso…" },
+    { fundo: guildaImg, duracaoAutomatica: 5000 },
+    { fundo: melquiorImg, falante: "Melquior", texto: `Eu sabia que você estava vindo… minha magia nunca falha! Pois bem, você deve ser ${nome}. Por que demorou tanto? O rei estava impaciente de encontrar a pessoa que se candidatou para essa missão…\n\nComo já deve ter ouvido nos boatos, muitos estão desaparecendo!!`, escolhas: [
+      { texto: "Perguntar o nome dele.", resposta: `Melquior:\n- Não precisamos perder tempo com formalidades, me chamo Melquior, vou te guiar ao castelo do rei.\n\n${nome}:\nCerto …` },
+      { texto: "Devem ser só uns ladrões.", resposta: "Melquior:\n- Sim.. deve ser só isso mesmo, não entendo por que tanto alarde." },
+      { texto: "Leve-me logo ao Rei, quanto mais cedo resolvemos melhor para todos.", resposta: "Melquior:\n- Iguais a você já vieram aos montes aqui, se está nessa missão pelo dinheiro, então boa sorte tentando não se matar." },
+    ] },
+    { fecharTela: true, texto: "…\n\nMelquior:\nChegamos!" },
+    { fundo: casteloImg, texto: `${nome}:\n- Saudações meu Rei, vim aqui auxiliar na missão de busca de pistas da guilda.\n\nRei:\n- Muito bem! Como já se sabe, não só o reino de Kaestral está sofrendo com fenômenos estranhos, mas também Yingdad o reino dos elfos e Kotof reino escondido dos anões.` },
+    { limparAntes: true, fundo: casteloImg, texto: "Rei:\n- Quero que você se dirija ao vilarejo ao norte da cidade, onde aconteceu o primeiro desaparecimento e verifique se conseguimos achar alguma pista do que pode estar ocorrendo." },
+  ];
+}
+
+function TextoDigitado({ texto, ativo, onDone }: { texto: string; ativo: boolean; onDone: () => void }) {
+  const [visivel, setVisivel] = useState("");
+
+  useEffect(() => {
+    if (!ativo || !texto) {
+      if (!texto) onDone();
+      return;
+    }
+    let indice = 0;
+    const timer = window.setInterval(() => {
+      indice += 1;
+      setVisivel(texto.slice(0, indice));
+      if (indice >= texto.length) {
+        window.clearInterval(timer);
+        onDone();
+      }
+    }, VELOCIDADE_DIGITACAO);
+    return () => window.clearInterval(timer);
+  }, [texto, ativo, onDone]);
+
+  return <p className="typewriter-text">{visivel}<span className="typing-caret" aria-hidden="true" /></p>;
+}
+
+function TelaHistoria({ personagem, onFinish }: { personagem: Personagem; onFinish: () => void }) {
+  const momentos = useMemo(() => montarHistoria(personagem.nome), [personagem.nome]);
+  const [indice, setIndice] = useState(0);
+  const [digitacaoCompleta, setDigitacaoCompleta] = useState(false);
+  const [respostaEscolha, setRespostaEscolha] = useState<string | null>(null);
+  const momento = momentos[indice];
+  const textoAtual = respostaEscolha ?? momento.texto ?? "";
+  const historiaTerminou = indice >= momentos.length - 1 && digitacaoCompleta;
+
+  const irParaMomento = (proximoIndice: number) => {
+    setDigitacaoCompleta(false);
+    setRespostaEscolha(null);
+    setIndice(proximoIndice);
+  };
+
+  useEffect(() => {
+    if (!momento.duracaoAutomatica) return;
+    const timer = window.setTimeout(() => irParaMomento(Math.min(indice + 1, momentos.length - 1)), momento.duracaoAutomatica);
+    return () => window.clearTimeout(timer);
+  }, [indice, momento.duracaoAutomatica, momentos.length]);
+
+  const avancar = () => {
+    if (!digitacaoCompleta || momento.duracaoAutomatica || (momento.escolhas && !respostaEscolha)) return;
+    if (historiaTerminou) onFinish();
+    else irParaMomento(Math.min(indice + 1, momentos.length - 1));
+  };
+
+  return (
+    <section className={`story-screen ${momento.fecharTela ? "story-blackout" : ""}`} style={momento.fundo ? { backgroundImage: `url(${momento.fundo})` } : undefined}>
+      <div className="story-vignette" />
+      {textoAtual && <div className="story-dialog" onClick={avancar}>
+        {momento.falante && !respostaEscolha && <strong className="story-speaker">{momento.falante}:</strong>}
+        <TextoDigitado key={`${indice}-${respostaEscolha ?? "base"}`} texto={textoAtual} ativo onDone={() => setDigitacaoCompleta(true)} />
+        {digitacaoCompleta && momento.escolhas && !respostaEscolha && <div className="story-choices">{momento.escolhas.map((escolha) => <button key={escolha.texto} className="btn" onClick={(e) => { e.stopPropagation(); setDigitacaoCompleta(false); setRespostaEscolha(escolha.resposta); }}>{escolha.texto}</button>)}</div>}
+        {digitacaoCompleta && (!momento.escolhas || respostaEscolha) && <span className="story-hint">Clique para continuar</span>}
+      </div>}
+      {historiaTerminou && <div className="story-actions"><button className="btn" onClick={onFinish}>Ir ao mercado</button><button className="btn" onClick={onFinish}>Ir para a entrada da cidade</button></div>}
+    </section>
+  );
+}
+
 
 function salvarPersonagemAtualizado(personagem: Personagem, slotPreferido?: number) {
   if (slotPreferido) {
