@@ -904,3 +904,22 @@
   margin: 0 auto 14px;
   filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.65));
 }
+.story-combat-screen {
+  background-color: #050608;
+  background-size: cover;
+  background-position: center;
+}
+
+.story-combat-screen .story-vignette {
+  display: block;
+}
+
+.story-combat-screen .story-dialog {
+  width: min(94vw, 820px);
+  display: block;
+}
+
+.historia-combate-panel {
+  width: min(94vw, 780px);
+  margin: 0 auto;
+}

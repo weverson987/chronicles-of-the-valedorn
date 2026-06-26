@@ -15,6 +15,7 @@ import ritualImg from "../estruturas/ritual.png";
 import taylorMachucadoImg from "../entidades/npc/taylor_machucado.png";
 import { GOBLINS, GOBLIN_GUERREIRO, chanceEncontroGoblin } from "../entidades/monstros/goblin";
 import { FANTASMA, chanceEncontroFantasma } from "../entidades/monstros/fantasma";
+import { ESQUELETO, chanceEncontroEsqueleto } from "../entidades/monstros/esqueleto";
 import type { Inimigo } from "../entidades/monstros/tipos";
 import "./App.css";
 
@@ -75,6 +76,16 @@ function criarFantasma(nivelJogador: number): Inimigo {
   };
 }
 
+function criarEsqueleto(nivelJogador: number): Inimigo {
+  return {
+    ...ESQUELETO,
+    nivel: nivelJogador,
+    vidaMaxima: sortearInteiro(55, 75),
+    ouroDrop: sortearInteiro(15, 24),
+    xpDrop: sortearInteiro(20, 30),
+  };
+}
+
 function criarGoblin(nivelJogador: number): Inimigo {
   const goblin = GOBLINS[Math.floor(Math.random() * GOBLINS.length)];
   const xpDrop = goblin.id === "goblin_xama" ? sortearInteiro(3, 5) : sortearInteiro(4, 5);
@@ -83,11 +94,13 @@ function criarGoblin(nivelJogador: number): Inimigo {
 
 function criarEncontroMonstro(nivelJogador: number): Inimigo {
   const chanceFantasma = chanceEncontroFantasma(nivelJogador);
+  const chanceEsqueleto = chanceEncontroEsqueleto(nivelJogador);
   const chanceGoblin = chanceEncontroGoblin(nivelJogador);
   const rolagem = rolarPorcentagem();
 
   if (rolagem < chanceFantasma) return criarFantasma(nivelJogador);
-  if (rolagem < chanceFantasma + chanceGoblin) return criarGoblin(nivelJogador);
+  if (rolagem < chanceFantasma + chanceEsqueleto) return criarEsqueleto(nivelJogador);
+  if (rolagem < chanceFantasma + chanceEsqueleto + chanceGoblin) return criarGoblin(nivelJogador);
   return chanceGoblin > 0 ? criarGoblin(nivelJogador) : criarFantasma(nivelJogador);
 }
 
@@ -171,8 +184,8 @@ type MomentoHistoria = {
   fecharTela?: boolean;
   escolhas?: { texto: string; resposta: string }[];
   tipo?: "mercado" | "portao" | "combateHistoria";
-  inimigoHistoria?: "goblin" | "fantasma" | "aleatorio";
-  retrato?: string;
+  inimigoHistoria?: "goblin" | "fantasma" | "esqueleto" | "aleatorio";
+  recompensa?: { itemId: string; quantidade: number; mensagem: string };
 };
 
 const VELOCIDADE_DIGITACAO = 42;
