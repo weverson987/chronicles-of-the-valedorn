@@ -42,7 +42,7 @@ const PROGRESSAO_NIVEL = [
 const ATRIBUTOS_DISTRIBUIVEIS: AtributoDistribuivel[] = ["vida", "defesa", "magia", "agilidade", "ataque"];
 
 const ITENS_COMBATE = [
-  { id: "pocao_cura", nome: "Poção de cura", descricao: "Restaura 5 de vida.", cura: 10 },
+  { id: "pocao_cura", nome: "Poção de cura", descricao: "Restaura 5 de vida.", cura: 5 },
 ] as const;
 
 const CHANCE_FUGA_BASE = 90;
@@ -94,7 +94,7 @@ function normalizarPersonagem(p: Personagem): Personagem {
     imagem: p.imagem || classe.imagem,
     progresso: normalizarProgresso(p.progresso),
     stats: { ...classe.base, ...p.stats },
-    inventario: p.inventario ?? [{ id: "pocao_cura", quantidade: 2 }],
+    inventario: p.inventario ?? [{ id: "pocao_cura", quantidade: 1 }],
   };
 }
 
@@ -424,7 +424,7 @@ function CriarPersonagem({ slot, voltar, iniciarHistoria }: { slot: number; volt
   const [personagemCriado, setPersonagemCriado] = useState<Personagem | null>(null);
   function salvar() {
     if (!nome.trim()) return alert("Digite um nome.");
-    const personagem: Personagem = { nome, classe, stats: { ...classeAtual.base }, habilidade: classeAtual.habilidade, magiaNome: classeAtual.magiaNome, imagem: classeAtual.imagem, progresso: { nivel: 1, xp: 0, xpProximo: 20, pontosStatus: 0 }, inventario: [{ id: "pocao_cura", quantidade: 2 }] };    localStorage.setItem(`save${slot}`, JSON.stringify(personagem));
+    const personagem: Personagem = { nome, classe, stats: { ...classeAtual.base }, habilidade: classeAtual.habilidade, magiaNome: classeAtual.magiaNome, imagem: classeAtual.imagem, progresso: { nivel: 1, xp: 0, xpProximo: 20, pontosStatus: 0 }, inventario: [{ id: "pocao_cura", quantidade: 1 }] };    localStorage.setItem(`save${slot}`, JSON.stringify(personagem));
     setPersonagemCriado(personagem);
   }
 
