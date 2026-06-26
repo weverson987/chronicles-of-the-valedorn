@@ -9,6 +9,7 @@ import casteloImg from "../estruturas/castelo.png";
 import mercadoImg from "../estruturas/mercado.png";
 import saidaMuralhaImg from "../estruturas/saida_muralha.png";
 import vilaImg from "../estruturas/vila.png";
+import forjaImg from "../estruturas/forja.png";
 import { GOBLINS, GOBLIN_GUERREIRO, chanceEncontroGoblin } from "../entidades/monstros/goblin";
 import { FANTASMA, chanceEncontroFantasma } from "../entidades/monstros/fantasma";
 import type { Inimigo } from "../entidades/monstros/tipos";
@@ -166,7 +167,8 @@ type MomentoHistoria = {
   limparAntes?: boolean;
   fecharTela?: boolean;
   escolhas?: { texto: string; resposta: string }[];
-  tipo?: "mercado" | "portao";
+  tipo?: "mercado" | "portao" | "combateHistoria";
+  inimigoHistoria?: "goblin" | "fantasma";
 };
 
 const VELOCIDADE_DIGITACAO = 42;
@@ -201,12 +203,37 @@ function montarHistoria(nome: string): MomentoHistoria[] {
     { fundo: mercadoImg, tipo: "mercado", texto: "Mercado" },
     { fundo: saidaMuralhaImg, tipo: "portao", texto: "A muralha de Kaestral fica para trás, e a estrada aponta para o campo aberto." },
     { fundo: vilaImg, falante: nome, texto: "Estranho…\nEles não tentaram roubar nada" },
+    { fundo: vilaImg, texto: "Três goblins surgem entre as casas destruídas, farejando o ar e cercando você." },
+    { fundo: vilaImg, tipo: "combateHistoria", inimigoHistoria: "goblin", texto: "Goblin 1" },
+    { fundo: vilaImg, falante: "Goblin", texto: "Krrr… " },
+    { fundo: vilaImg, tipo: "combateHistoria", inimigoHistoria: "goblin", texto: "Goblin 2" },
+    { fundo: vilaImg, falante: "Goblin", texto: "Cheiro forte… humano perto!" },
+    { fundo: vilaImg, tipo: "combateHistoria", inimigoHistoria: "goblin", texto: "Goblin 3" },
+    { fundo: vilaImg, falante: "Goblin", texto: "Krss" },
     { fundo: vilaImg, falante: nome, texto: "Parece que estavam seguindo o cheiro de sangue.." },
+        { fundo: vilaImg, tipo: "combateHistoria", inimigoHistoria: "goblin", texto: "Mais um goblin aparece atraído pelo combate." },
     { fundo: vilaImg, falante: nome, texto: "Meu Deus! O que houve aqui…" },
     { limparAntes: true, fundo: vilaImg, texto: `As portas estavam abertas.\n\nNinguém andava nas ruas, nem mesmo os animais.\n\nTinham roupas espalhadas no chão, e várias marcas de pegadas fundas na areia fofa.\n\nComo se estivessem correndo de algo.\n\n${nome} sente uma estranha energia vindo da vila.` },
     { fundo: vilaImg, falante: nome, texto: "Não sobrou ninguém, parece até uma cidade fantasma..", escolhas: [
       { texto: "Investigar casas", resposta: "Você se prepara para investigar as casas abandonadas." },
       { texto: "Investigar rastros de sangue", resposta: "Você segue os rastros de sangue com cuidado." },
+    ] },
+        { fundo: forjaImg, texto: "Você entra na casa que parece estar um pouco menos desgastada do que as demais, a casa também parece maior do que as outras e lá é o que parece ser uma espécie de forja.", escolhas: [
+      { texto: "Olhar ao redor", resposta: "Olhar ao redor" },
+      { texto: "Adentrar mais fundo na forja", resposta: "Adentrar mais fundo na forja" },
+    ] },
+    { fundo: forjaImg, falante: nome, texto: "olha ao redor e sente uma energia estranha no local." },
+    { limparAntes: true, fundo: forjaImg, texto: "É a mesma sensação que ele sentiu quando chegou na vila.." },
+    { limparAntes: true, fundo: forjaImg, falante: nome, texto: "sente um calafrio percorrendo sua espinha." },
+    { limparAntes: true, fundo: forjaImg, texto: "Uma névoa começa a se formar dentro da forja.." },
+    { fundo: forjaImg, tipo: "combateHistoria", inimigoHistoria: "fantasma", texto: "Um fantasma surge da névoa." },
+    { fundo: forjaImg, falante: "fantasma", texto: "Por favor…" },
+    { fundo: forjaImg, texto: "A forja volta a ficar silenciosa.", escolhas: [
+      { texto: "Adentrar mais fundo na forja", resposta: "Adentrar mais fundo na forja" },
+    ] },
+    { fundo: forjaImg, texto: "Você se depara com uma porta. Gostaria de abri-la?", escolhas: [
+      { texto: "Abrir porta", resposta: "Você segura a maçaneta fria e se prepara para abrir a porta." },
+      { texto: "Voltar e investigar os rastros de sangue", resposta: "Você decide voltar para seguir os rastros de sangue." },
     ] },
   ];
 }
@@ -291,7 +318,20 @@ function TelaHistoria({ personagem, slot, onFinish }: { personagem: Personagem; 
     else irParaMomento(Math.min(indice + 1, momentos.length - 1));
   };
 
-    const comprarItem = (itemId: string, custo: number) => {
+    const selecionarEscolha = (resposta: string) => {
+    if (resposta === "Investigar casas" || resposta === "Olhar ao redor") {
+      irParaMomento(indice + 1);
+      return;
+    }
+    if (resposta === "Adentrar mais fundo na forja") {
+      irParaMomento(indice === 36 ? 44 : indice + 1);
+      return;
+    }
+    setDigitacaoCompleta(false);
+    setRespostaEscolha(resposta);
+  };
+
+  const comprarItem = (itemId: string, custo: number) => {
     setPersonagemHistoria((atual) => {
       if (atual.stats.ouro < custo) return atual;
       return adicionarItemAoInventario({ ...atual, stats: { ...atual.stats, ouro: atual.stats.ouro - custo } }, itemId);
@@ -301,15 +341,66 @@ function TelaHistoria({ personagem, slot, onFinish }: { personagem: Personagem; 
     <section className={`story-screen ${momento.fecharTela ? "story-blackout" : ""} ${momento.fundo ? "story-has-background" : ""}`} style={momento.fundo ? { backgroundImage: `url(${momento.fundo})` } : undefined}>      <div className="story-vignette" />
       {textoAtual && <div className="story-dialog" onClick={avancar}>
         {momento.falante && !respostaEscolha && <strong className="story-speaker">{momento.falante}:</strong>}
-        <TextoDigitado key={`${indice}-${respostaEscolha ?? "base"}`} texto={textoAtual} ativo onDone={concluirDigitacao} />        {digitacaoCompleta && momento.escolhas && !respostaEscolha && <div className="story-choices">{momento.escolhas.map((escolha) => <button key={escolha.texto} className="btn" onClick={(e) => { e.stopPropagation(); setDigitacaoCompleta(false); setRespostaEscolha(escolha.resposta); }}>{escolha.texto}</button>)}</div>}
+        <TextoDigitado key={`${indice}-${respostaEscolha ?? "base"}`} texto={textoAtual} ativo onDone={concluirDigitacao} />        {digitacaoCompleta && momento.escolhas && !respostaEscolha && <div className="story-choices">{momento.escolhas.map((escolha) => <button key={escolha.texto} className="btn" onClick={(e) => { e.stopPropagation(); selecionarEscolha(escolha.resposta); }}>{escolha.texto}</button>)}</div>}
         {digitacaoCompleta && momento.tipo === "mercado" && <MercadoHistoria personagem={personagemHistoria} onComprar={comprarItem} onSair={() => irParaMomento(indice + 1)} />}
         {digitacaoCompleta && momento.tipo === "portao" && <div className="story-choices"><button className="btn" onClick={(e) => { e.stopPropagation(); irParaMomento(indice + 1); }}>Seguir em frente</button></div>}
+        {digitacaoCompleta && momento.tipo === "combateHistoria" && <CombateHistoria personagem={personagemHistoria} inimigoTipo={momento.inimigoHistoria ?? "goblin"} onVencer={(atualizado) => { setPersonagemHistoria(atualizado); irParaMomento(indice + 1); }} onMorrer={() => { localStorage.removeItem(`save${slot}`); window.location.reload(); }} />}        
         {digitacaoCompleta && !momento.tipo && (!momento.escolhas || respostaEscolha) && <span className="story-hint">Clique para continuar</span>}
       </div>}
     </section>
   );
 }
 
+function CombateHistoria({ personagem, inimigoTipo, onVencer, onMorrer }: { personagem: Personagem; inimigoTipo: "goblin" | "fantasma"; onVencer: (personagemAtualizado: Personagem) => void; onMorrer: () => void }) {
+  const inimigo = useMemo(() => inimigoTipo === "fantasma" ? criarFantasma(personagem.progresso.nivel) : { ...GOBLIN_GUERREIRO, nivel: personagem.progresso.nivel }, [inimigoTipo, personagem.progresso.nivel]);
+  const [vidaInimigo, setVidaInimigo] = useState(inimigo.vidaMaxima);
+  const [vidaPlayer, setVidaPlayer] = useState(personagem.stats.vida);
+  const [log, setLog] = useState<string[]>([`Um ${inimigo.nome} apareceu!`]);
+  const [travado, setTravado] = useState(false);
+
+  function atacar(acao: Exclude<AcaoCombate, "item" | "fugir">) {
+    if (travado || vidaPlayer <= 0 || vidaInimigo <= 0) return;
+    const nomeAcao = acao === "magia" ? personagem.magiaNome : acao === "habilidade" ? personagem.habilidade : "Ataque básico";
+    const bruto = acao === "ataque" ? personagem.stats.ataque : acao === "magia" ? personagem.stats.magia + 4 : personagem.stats.ataque + personagem.stats.magia * 0.6;
+    const dano = calcDano(bruto, inimigo.defesa);
+    const novaVidaInimigo = Math.max(0, vidaInimigo - dano);
+    setVidaInimigo(novaVidaInimigo);
+    setLog((atual) => [`Você usou ${nomeAcao} e causou ${dano} de dano.`, ...atual]);
+
+    if (novaVidaInimigo <= 0) {
+      setTravado(true);
+      const resultadoXp = aplicarXp({ ...personagem, stats: { ...personagem.stats, ouro: personagem.stats.ouro + inimigo.ouroDrop } }, inimigo.xpDrop);
+      setLog((atual) => [`${inimigo.nome} foi derrotado! +${inimigo.xpDrop} XP, +${inimigo.ouroDrop} ouro.`, ...atual]);
+      window.setTimeout(() => onVencer(resultadoXp.personagem), 900);
+      return;
+    }
+
+    const golpe = inimigo.golpes[log.length % inimigo.golpes.length];
+    const danoRecebido = calcDano(golpe.dano + (golpe.tipo === "magia" ? inimigo.magia : inimigo.ataque), personagem.stats.defesa);
+    const novaVidaPlayer = Math.max(0, vidaPlayer - danoRecebido);
+    setVidaPlayer(novaVidaPlayer);
+    setLog((atual) => [`${inimigo.nome} usou ${golpe.nome} e causou ${danoRecebido} de dano.`, ...atual]);
+    if (novaVidaPlayer <= 0) {
+      setTravado(true);
+      window.setTimeout(onMorrer, 900);
+    }
+  }
+
+  return (
+    <div className="story-combat" onClick={(e) => e.stopPropagation()}>
+      <div className="story-combatants">
+        <div><strong>{personagem.nome}</strong><span>Vida: {vidaPlayer}/{personagem.stats.vida}</span></div>
+        <div><img src={inimigo.imagem} alt={inimigo.nome} /><strong>{inimigo.nome}</strong><span>Vida: {vidaInimigo}/{inimigo.vidaMaxima}</span></div>
+      </div>
+      <div className="story-choices combat-actions">
+        <button className="btn" disabled={travado} onClick={() => atacar("ataque")}>Ataque</button>
+        <button className="btn" disabled={travado} onClick={() => atacar("magia")}>Magia</button>
+        <button className="btn" disabled={travado} onClick={() => atacar("habilidade")}>Habilidade</button>
+      </div>
+      <div className="story-combat-log">{log.slice(0, 4).map((linha, indiceLog) => <p key={indiceLog}>{linha}</p>)}</div>
+    </div>
+  );
+}
 
 function salvarPersonagemAtualizado(personagem: Personagem, slotPreferido?: number) {
   if (slotPreferido) {

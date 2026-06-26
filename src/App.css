@@ -630,6 +630,46 @@
   box-shadow: inset 0 1px 0 rgba(255, 232, 171, 0.26), 0 8px 18px rgba(0, 0, 0, 0.34);
 }
 
+.story-market {
+  display: grid;
+  gap: 12px;
+}
+
+.story-market p {
+  margin: 0;
+  color: #ffd88f;
+}
+
+.story-market-items {
+  display: grid;
+  gap: 10px;
+}
+
+.market-item-button {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid rgba(217, 167, 93, 0.9);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(35, 24, 13, 0.94), rgba(16, 11, 6, 0.96));
+  color: #fff1c7;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  box-shadow: inset 0 1px 0 rgba(255, 232, 171, 0.18), 0 6px 14px rgba(0, 0, 0, 0.28);
+}
+
+.market-item-button:hover,
+.market-item-button:focus-visible {
+  filter: brightness(1.15);
+}
+
+.market-item-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(0.25);
+}
+
 @keyframes storyFadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -713,4 +753,102 @@
 .story-has-background .story-actions {
   width: 100%;
   margin: 6px 0 0;
+}
+.story-market-items {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 620px);
+  margin: 10px auto 14px;
+}
+
+.market-item-button {
+  padding: 12px 18px;
+  border: 2px solid #a67c52;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(58, 38, 17, 0.94), rgba(27, 18, 9, 0.96));
+  color: #e6d3a3;
+  cursor: pointer;
+  display: grid;
+  gap: 5px;
+  text-align: left;
+  font: inherit;
+  box-shadow: inset 0 1px 0 rgba(255, 232, 171, 0.26), 0 8px 18px rgba(0, 0, 0, 0.34);
+}
+
+.market-item-button:hover,
+.market-item-button:focus-visible {
+  filter: brightness(1.15);
+}
+
+.market-item-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.items-panel {
+  padding: 16px;
+}
+
+.items-panel h3 {
+  font-size: 24px;
+}
+
+.items-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.item-button {
+  min-width: 220px;
+  padding: 16px 18px;
+  gap: 8px;
+  font-size: 18px;
+}
+
+.item-button span {
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.story-combat {
+  display: grid;
+  gap: 12px;
+}
+
+.story-combatants {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.story-combatants > div {
+  display: grid;
+  gap: 5px;
+  justify-items: center;
+  padding: 10px;
+  border: 1px solid #6f5235;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.story-combatants img {
+  width: 82px;
+  height: 82px;
+  object-fit: contain;
+}
+
+.combat-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.story-combat-log {
+  max-height: 110px;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid #5e4327;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.story-combat-log p {
+  margin: 3px 0;
+  font-size: 14px;
 }
