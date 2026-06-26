@@ -30,7 +30,7 @@ export const FANTASMA: Inimigo = {
   defesa: 1,
   magia: 0,
   agilidade: 8,
-  ouroDrop: 7,
+  ouroDrop: 10,
   xpDrop: 25,
   imagem: fantasmaImg,
   golpes: [
