@@ -17,7 +17,8 @@ type AtributoDistribuivel = "vida" | "defesa" | "magia" | "agilidade" | "ataque"
 type Stats = { vida: number; defesa: number; magia: number; agilidade: number; ataque: number; ouro: number };
 type ClasseConfig = { nome: string; base: Stats; habilidade: string; magiaNome: string; imagem: string };
 type Progresso = { nivel: number; xp: number; xpProximo: number; pontosStatus: number };
-type Personagem = { nome: string; classe: ClasseId; stats: Stats; habilidade: string; magiaNome: string; imagem: string; progresso: Progresso };
+type ItemInventario = { id: string; quantidade: number };
+type Personagem = { nome: string; classe: ClasseId; stats: Stats; habilidade: string; magiaNome: string; imagem: string; progresso: Progresso; inventario: ItemInventario[] };
 
 const CLASSES: Record<ClasseId, ClasseConfig> = {
   guerreiro: { nome: "Guerreiro", base: { vida: 15, defesa: 5, magia: 0, agilidade: 5, ataque: 15, ouro: 30 }, habilidade: "Incansável", magiaNome: "Golpe Arcano", imagem: guerreiroImg },
@@ -26,19 +27,23 @@ const CLASSES: Record<ClasseId, ClasseConfig> = {
 };
 
 const PROGRESSAO_NIVEL = [
-  { nivel: 1, xpProximo: 100, pontosStatus: 0 },
-  { nivel: 2, xpProximo: 320, pontosStatus: 2 },
-  { nivel: 3, xpProximo: 700, pontosStatus: 2 },
-  { nivel: 4, xpProximo: 1250, pontosStatus: 3 },
-  { nivel: 5, xpProximo: 2000, pontosStatus: 3 },
+  { nivel: 1, xpProximo: 20, pontosStatus: 0 },
+  { nivel: 2, xpProximo: 55, pontosStatus: 5 },
+  { nivel: 3, xpProximo: 90, pontosStatus: 5 },
+  { nivel: 4, xpProximo: 150, pontosStatus: 5 },
+  { nivel: 5, xpProximo: 240, pontosStatus: 5 },
+  { nivel: 6, xpProximo: 320, pontosStatus: 5 },
+  { nivel: 7, xpProximo: 470, pontosStatus: 5 },
+  { nivel: 8, xpProximo: 540, pontosStatus: 5 },
+  { nivel: 9, xpProximo: 590, pontosStatus: 5 },
+  { nivel: 10, xpProximo: 670, pontosStatus: 5 },
 ];
 
 const ATRIBUTOS_DISTRIBUIVEIS: AtributoDistribuivel[] = ["vida", "defesa", "magia", "agilidade", "ataque"];
 
 const ITENS_COMBATE = [
   { id: "pocao_cura", nome: "Poção de cura", descricao: "Restaura 5 de vida.", cura: 5 },
-  { id: "tonico_menor", nome: "Tônico menor", descricao: "Restaura 3 de vida em emergências.", cura: 3 },
-];
+] as const;
 
 const CHANCE_FUGA_BASE = 90;
 
@@ -70,7 +75,8 @@ function normalizarPersonagem(p: Personagem): Personagem {
     habilidade: p.habilidade || classe.habilidade,
     magiaNome: p.magiaNome || classe.magiaNome,
     imagem: p.imagem || classe.imagem,
-    progresso: p.progresso || { nivel: 1, xp: 0, xpProximo: 100, pontosStatus: 0 },
+    progresso: p.progresso || { nivel: 1, xp: 0, xpProximo: 20, pontosStatus: 0 },
+    inventario: p.inventario ?? [{ id: "pocao_cura", quantidade: 1 }],
   };
 }
 
@@ -96,6 +102,7 @@ export default function App() {
   const [tela, setTela] = useState<Tela>("menu");
   const [slotSelecionado, setSlotSelecionado] = useState<number | null>(null);
   const [personagemAtivo, setPersonagemAtivo] = useState<Personagem | null>(null);
+  const [slotAtivo, setSlotAtivo] = useState<number | null>(null);
 
   const temSave = [1, 2, 3, 4].some((i) => !!localStorage.getItem(`save${i}`));
 
@@ -112,12 +119,15 @@ export default function App() {
       )}
       {tela === "slots" && <TelaSlots onBack={() => setTela("menu")} onSelect={(slot) => { setSlotSelecionado(slot); setTela("criar"); }} />}
       {tela === "criar" && slotSelecionado !== null && <CriarPersonagem slot={slotSelecionado} voltar={() => setTela("slots")} voltarMenu={() => setTela("menu")} />}
-      {tela === "continuar" && <TelaContinuar onBack={() => setTela("menu")} onFight={(p) => { setPersonagemAtivo(p); setTela("combate"); }} />}
-      {tela === "combate" && personagemAtivo && <TelaCombate personagem={personagemAtivo} onBack={() => setTela("continuar")} />}
-    </main>);
+      {tela === "continuar" && <TelaContinuar onBack={() => setTela("menu")} onFight={(p, slot) => { setPersonagemAtivo(p); setSlotAtivo(slot); setTela("combate"); }} />}
+      {tela === "combate" && personagemAtivo && slotAtivo !== null && <TelaCombate personagem={personagemAtivo} slot={slotAtivo} onBack={() => setTela("continuar")} onDeath={() => { localStorage.removeItem(`save${slotAtivo}`); setPersonagemAtivo(null); setSlotAtivo(null); setTela("menu"); }} />}    </main>);
 }
 
-function salvarPersonagemAtualizado(personagem: Personagem) {
+function salvarPersonagemAtualizado(personagem: Personagem, slotPreferido?: number) {
+  if (slotPreferido) {
+    localStorage.setItem(`save${slotPreferido}`, JSON.stringify(personagem));
+    return;
+  }
   for (let slot = 1; slot <= 4; slot += 1) {
     const salvo = lerSave(slot);
     if (salvo?.nome === personagem.nome && salvo.classe === personagem.classe) {
@@ -136,9 +146,17 @@ function TelaSlots({ onSelect, onBack }: { onSelect: (slot: number) => void; onB
   return <section className="panel"><h2>Escolha um Slot</h2><div className="stack">{[1, 2, 3, 4].map((slot) => { const p = lerSave(slot); return <button key={slot} className="btn" onClick={() => onSelect(slot)}>{p ? `Slot ${slot}: ${p.nome} | ${CLASSES[p.classe].nome} | Lv.${p.progresso.nivel} | Ouro ${p.stats.ouro}` : `Slot ${slot} (vazio)`}</button>; })}</div><button className="btn" onClick={onBack}>Voltar</button></section>;
 }
 
-function TelaContinuar({ onBack, onFight }: { onBack: () => void; onFight: (personagem: Personagem) => void }) {
-  return <section className="panel"><h2>Continuar</h2><div className="stack">{[1, 2, 3, 4].map((slot) => { const p = lerSave(slot); return <button key={slot} className="btn" disabled={!p} onClick={() => p && onFight(p)}>{p ? `${p.nome} (${CLASSES[p.classe].nome}) - Lv.${p.progresso.nivel} - Lutar` : `Slot ${slot} vazio`}</button>; })}</div><button className="btn" onClick={onBack}>Voltar</button></section>;}
+function TelaContinuar({ onBack, onFight }: { onBack: () => void; onFight: (personagem: Personagem, slot: number) => void }) {
+  const [slotExcluir, setSlotExcluir] = useState<number | null>(null);
+  const saveExcluir = slotExcluir ? lerSave(slotExcluir) : null;
 
+  function excluirSave() {
+    if (!slotExcluir) return;
+    localStorage.removeItem(`save${slotExcluir}`);
+    setSlotExcluir(null);
+  }
+
+  return <section className="panel"><h2>Continuar</h2><div className="stack">{[1, 2, 3, 4].map((slot) => { const p = lerSave(slot); return <div key={slot} className="save-row"><button className="btn save-play" disabled={!p} onClick={() => p && onFight(p, slot)}>{p ? `${p.nome} (${CLASSES[p.classe].nome}) - Lv.${p.progresso.nivel} - Lutar` : `Slot ${slot} vazio`}</button><button className="btn danger-btn" disabled={!p} onClick={() => setSlotExcluir(slot)}>Excluir</button></div>; })}</div><button className="btn" onClick={onBack}>Voltar</button>{slotExcluir && saveExcluir && <ModalConfirmacao titulo="Excluir jogo" mensagem={`Tem certeza que deseja excluir ${saveExcluir.nome}? Todo o progresso será perdido.`} confirmar="Excluir" cancelar="Cancelar" perigo onConfirmar={excluirSave} onCancelar={() => setSlotExcluir(null)} />}</section>;}
 function barraPct(atual: number, maximo: number) { return Math.max(0, Math.floor((atual / maximo) * 100)); }
 
 type InimigoEmCombate = {
@@ -150,8 +168,7 @@ function criarInimigoEmCombate(inimigo: Inimigo): InimigoEmCombate {
   return { inimigo: { ...inimigo }, vida: inimigo.vidaMaxima };
 }
 
-function TelaCombate({ personagem, onBack }: { personagem: Personagem; onBack: () => void }) {
-  const inimigoInicial = useMemo(() => criarEncontroMonstro(personagem.progresso.nivel), [personagem.progresso.nivel]);
+function TelaCombate({ personagem, slot, onBack, onDeath }: { personagem: Personagem; slot: number; onBack: () => void; onDeath: () => void }) {  const inimigoInicial = useMemo(() => criarEncontroMonstro(personagem.progresso.nivel), [personagem.progresso.nivel]);
   const [player, setPlayer] = useState(personagem);
   const [inimigosAtivos, setInimigosAtivos] = useState<InimigoEmCombate[]>([criarInimigoEmCombate(inimigoInicial)]);
   const [alvoSelecionado, setAlvoSelecionado] = useState(0);
@@ -169,8 +186,8 @@ function TelaCombate({ personagem, onBack }: { personagem: Personagem; onBack: (
   const chanceFugaAtual = Math.max(5, CHANCE_FUGA_BASE - penalidadeFuga);
 
   useEffect(() => {
-    salvarPersonagemAtualizado(player);
-  }, [player]);
+    salvarPersonagemAtualizado(player, slot);
+    }, [player, slot]);
   function iniciarNovoCombate(personagemAtual: Personagem = player) {
     const proximoInimigo = criarEncontroMonstro(personagemAtual.progresso.nivel);
     setInimigosAtivos([criarInimigoEmCombate(proximoInimigo)]);
@@ -212,7 +229,10 @@ function TelaCombate({ personagem, onBack }: { personagem: Personagem; onBack: (
     });
 
     setVidaPlayer(vidaRestante);
-    if (vidaRestante <= 0) setLog((l) => [`${player.nome} foi derrotado.`, ...l]);
+      if (vidaRestante <= 0) {
+        setLog((l) => [`${player.nome} foi derrotado. Todo o progresso foi perdido.`, ...l]);
+        setTimeout(onDeath, 900);
+    }
   }
 
   function executarAcao(acao: AcaoCombate) {
@@ -225,11 +245,11 @@ function TelaCombate({ personagem, onBack }: { personagem: Personagem; onBack: (
     }
     if (acao === "fugir") {
       if (rolarPorcentagem() < chanceFugaAtual) {
-        setLog((l) => [`Você fugiu com sucesso (${chanceFugaAtual}% de chance).`, ...l]);
+        setLog((l) => ["Você fugiu com sucesso.", ...l]);
         onBack();
         return;
       }
-      setLog((l) => [`Falhou ao fugir (${chanceFugaAtual}% de chance).`, ...l]);
+      setLog((l) => ["Falhou ao fugir.", ...l]);
       ataqueDosMonstros(vidaPlayer);
       return;
     }
@@ -291,11 +311,13 @@ function TelaCombate({ personagem, onBack }: { personagem: Personagem; onBack: (
           </button>
         ))}
       </div>
-      <div className="novo-jogo-info">Ouro: <strong>{player.stats.ouro}</strong> | XP: <strong>{player.progresso.xp}/{player.progresso.xpProximo}</strong> | Pontos: <strong>{player.progresso.pontosStatus}</strong> | Fuga: <strong>{chanceFugaAtual}%</strong></div>      <div className="hp-wrap"><span>Sua vida: {vidaPlayer}/{player.stats.vida}</span><div className="hp-bar"><div style={{ width: `${barraPct(vidaPlayer, player.stats.vida)}%` }} /></div></div>
-      {alvoAtual && <div className="hp-wrap"><span>Alvo: {alvoAtual.inimigo.nome} ({alvoAtual.vida}/{alvoAtual.inimigo.vidaMaxima})</span><div className="hp-bar enemy"><div style={{ width: `${barraPct(alvoAtual.vida, alvoAtual.inimigo.vidaMaxima)}%` }} /></div></div>}
+      <div className="novo-jogo-info">Ouro: <strong>{player.stats.ouro}</strong> | XP: <strong>{player.progresso.xp}/{player.progresso.xpProximo}</strong> | Pontos: <strong>{player.progresso.pontosStatus}</strong></div>      <div className="hp-wrap"><span>Sua vida: {vidaPlayer}/{player.stats.vida}</span><div className="hp-bar"><div style={{ width: `${barraPct(vidaPlayer, player.stats.vida)}%` }} /></div></div>      {alvoAtual && <div className="hp-wrap"><span>Alvo: {alvoAtual.inimigo.nome} ({alvoAtual.vida}/{alvoAtual.inimigo.vidaMaxima})</span><div className="hp-bar enemy"><div style={{ width: `${barraPct(alvoAtual.vida, alvoAtual.inimigo.vidaMaxima)}%` }} /></div></div>}
       <div className="row">{(["ataque", "magia", "habilidade", "item", "fugir"] as AcaoCombate[]).map((a) => <button key={a} className="btn" disabled={vidaPlayer <= 0 || combateEncerrado || modalNivel} onClick={() => executarAcao(a)}>{a}</button>)}</div>
-      {mostraItens && <ListaItens vidaAtual={vidaPlayer} vidaMaxima={player.stats.vida} usarItem={(item) => {
+      {mostraItens && <ListaItens itens={player.inventario} vidaAtual={vidaPlayer} vidaMaxima={player.stats.vida} usarItem={(item) => {
+        const itemInventario = player.inventario.find((i) => i.id === item.id);
+          if (!itemInventario?.quantidade) return;
         const novaVida = Math.min(player.stats.vida, vidaPlayer + item.cura);
+        setPlayer((atual) => ({ ...atual, inventario: atual.inventario.map((i) => i.id === item.id ? { ...i, quantidade: i.quantidade - 1 } : i).filter((i) => i.quantidade > 0) }));
         setVidaPlayer(novaVida);
         setMostraItens(false);
         setLog((l) => [`Você usou ${item.nome} e restaurou ${novaVida - vidaPlayer} de vida.`, ...l]);
@@ -311,19 +333,21 @@ function TelaCombate({ personagem, onBack }: { personagem: Personagem; onBack: (
   );
 }
 
-function ListaItens({ vidaAtual, vidaMaxima, usarItem }: { vidaAtual: number; vidaMaxima: number; usarItem: (item: (typeof ITENS_COMBATE)[number]) => void }) {
-  return (
+function ListaItens({ itens, vidaAtual, vidaMaxima, usarItem }: { itens: ItemInventario[]; vidaAtual: number; vidaMaxima: number; usarItem: (item: (typeof ITENS_COMBATE)[number]) => void }) {
+  const itensDisponiveis = ITENS_COMBATE.filter((item) => itens.some((i) => i.id === item.id && i.quantidade > 0));  return (
     <div className="items-panel">
       <h3>Itens</h3>
-      <p>Escolha um item para usar neste turno.</p>
-      <div className="stack">
-        {ITENS_COMBATE.map((item) => (
-          <button key={item.id} className="item-button" disabled={vidaAtual >= vidaMaxima} onClick={() => usarItem(item)}>
-            <strong>{item.nome}</strong>
-            <span>{item.descricao}</span>
-          </button>
-        ))}
-      </div>
+      {itensDisponiveis.length === 0 ? <p>Você não tem itens.</p> : <div className="items-list">
+        {itensDisponiveis.map((item) => {
+          const quantidade = itens.find((i) => i.id === item.id)?.quantidade ?? 0;
+          return (
+            <button key={item.id} className="item-button" disabled={vidaAtual >= vidaMaxima} onClick={() => usarItem(item)}>
+              <strong>{item.nome} x{quantidade}</strong>
+              <span>{item.descricao}</span>
+            </button>
+          );
+        })}
+      </div>}
     </div>
   );
 }
@@ -360,18 +384,32 @@ function ModalNivel({ personagem, niveisGanhos, distribuir, fechar }: { personag
   );
 }
 
+function ModalConfirmacao({ titulo, mensagem, confirmar, cancelar, perigo = false, onConfirmar, onCancelar }: { titulo: string; mensagem: string; confirmar: string; cancelar?: string; perigo?: boolean; onConfirmar: () => void; onCancelar?: () => void }) {
+  return (
+    <div className="confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <div className="confirm-modal">
+        <h3 id="confirm-title">{titulo}</h3>
+        <p>{mensagem}</p>
+        <div className="row">
+          {cancelar && <button className="btn" onClick={onCancelar}>{cancelar}</button>}
+          <button className={`btn ${perigo ? "danger-btn" : ""}`} onClick={onConfirmar}>{confirmar}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CriarPersonagem({ slot, voltar, voltarMenu }: { slot: number; voltar: () => void; voltarMenu: () => void }) {
   const [nome, setNome] = useState("");
   const [classe, setClasse] = useState<ClasseId>("guerreiro");
   const classeAtual = CLASSES[classe];
+  const [confirmacaoCriacao, setConfirmacaoCriacao] = useState(false);
 
   function salvar() {
     if (!nome.trim()) return alert("Digite um nome.");
-    const personagem: Personagem = { nome, classe, stats: { ...classeAtual.base }, habilidade: classeAtual.habilidade, magiaNome: classeAtual.magiaNome, imagem: classeAtual.imagem, progresso: { nivel: 1, xp: 0, xpProximo: 100, pontosStatus: 0 } };
-      localStorage.setItem(`save${slot}`, JSON.stringify(personagem));
-    alert("Personagem criado!");
-
-    voltarMenu();
+    const personagem: Personagem = { nome, classe, stats: { ...classeAtual.base }, habilidade: classeAtual.habilidade, magiaNome: classeAtual.magiaNome, imagem: classeAtual.imagem, progresso: { nivel: 1, xp: 0, xpProximo: 100, pontosStatus: 0 }, inventario: [{ id: "pocao_cura", quantidade: 1 }] };
+    localStorage.setItem(`save${slot}`, JSON.stringify(personagem));
+    setConfirmacaoCriacao(true);
   }
 
   return <section className="panel"><h2>Criar Personagem</h2><input className="field" placeholder="Nome" value={nome} onChange={(e) => setNome(e.target.value)}  />
@@ -379,4 +417,4 @@ function CriarPersonagem({ slot, voltar, voltarMenu }: { slot: number; voltar: (
   <option value="guerreiro">Guerreiro</option><option value="mago">Mago</option>
     <option value="ladino">Ladino</option></select><div className="class-preview">
       <img src={classeAtual.imagem} alt={classeAtual.nome} className="class-img" />
-      <h3>{classeAtual.nome}</h3><p>Vida: {classeAtual.base.vida}</p><p>Defesa: {classeAtual.base.defesa}</p><p>Magia: {classeAtual.base.magia}</p><p>Agilidade: {classeAtual.base.agilidade}</p><p>Ataque: {classeAtual.base.ataque}</p><p>Ouro: {classeAtual.base.ouro}</p><p><strong>Habilidade:</strong> {classeAtual.habilidade}</p><p><strong>Magia:</strong> {classeAtual.magiaNome}</p></div><div className="row"><button className="btn" onClick={salvar}>Criar</button><button className="btn" onClick={voltar}>Voltar</button></div></section>;}
+     <h3>{classeAtual.nome}</h3><p>Vida: {classeAtual.base.vida}</p><p>Defesa: {classeAtual.base.defesa}</p><p>Magia: {classeAtual.base.magia}</p><p>Agilidade: {classeAtual.base.agilidade}</p><p>Ataque: {classeAtual.base.ataque}</p><p>Ouro: {classeAtual.base.ouro}</p><p><strong>Habilidade:</strong> {classeAtual.habilidade}</p><p><strong>Magia:</strong> {classeAtual.magiaNome}</p></div><div className="row"><button className="btn" onClick={salvar}>Criar</button><button className="btn" onClick={voltar}>Voltar</button></div>{confirmacaoCriacao && <ModalConfirmacao titulo="Personagem criado!" mensagem={`${nome} foi salvo no slot ${slot}.`} confirmar="Ir para o menu" onConfirmar={voltarMenu} />}</section>;}
