@@ -106,6 +106,14 @@ function normalizarPersonagem(p: Personagem): Personagem {
   };
 }
 
+function adicionarItemAoInventario(personagem: Personagem, itemId: string, quantidade = 1): Personagem {
+  const itemExistente = personagem.inventario.find((item) => item.id === itemId);
+  const inventario = itemExistente
+    ? personagem.inventario.map((item) => item.id === itemId ? { ...item, quantidade: item.quantidade + quantidade } : item)
+    : [...personagem.inventario, { id: itemId, quantidade }];
+  return { ...personagem, inventario };
+}
+
 function aplicarXp(personagem: Personagem, xpGanho: number): { personagem: Personagem; niveisGanhos: number } {
   let progresso = { ...personagem.progresso, xp: personagem.progresso.xp + xpGanho };
   const stats = { ...personagem.stats };
@@ -146,7 +154,7 @@ export default function App() {
       {tela === "slots" && <TelaSlots onBack={() => setTela("menu")} onSelect={(slot) => { setSlotSelecionado(slot); setTela("criar"); }} />}
       {tela === "criar" && slotSelecionado !== null && <CriarPersonagem slot={slotSelecionado} voltar={() => setTela("slots")} iniciarHistoria={(personagem) => { setPersonagemAtivo(personagem); setSlotAtivo(slotSelecionado); setTela("historia"); }} />}
       {tela === "continuar" && <TelaContinuar onBack={() => setTela("menu")} onFight={(p, slot) => { setPersonagemAtivo(p); setSlotAtivo(slot); setTela("combate"); }} />}
-      {tela === "historia" && personagemAtivo && <TelaHistoria personagem={personagemAtivo} onFinish={() => setTela("combate")} />}
+      {tela === "historia" && personagemAtivo && slotAtivo !== null && <TelaHistoria personagem={personagemAtivo} slot={slotAtivo} onFinish={(personagemAtualizado) => { setPersonagemAtivo(personagemAtualizado); setTela("combate"); }} />}
       {tela === "combate" && personagemAtivo && slotAtivo !== null && <TelaCombate personagem={personagemAtivo} slot={slotAtivo} onBack={() => setTela("continuar")} onDeath={() => { localStorage.removeItem(`save${slotAtivo}`); setPersonagemAtivo(null); setSlotAtivo(null); setTela("menu"); }} />}    </main>);
 }
 
@@ -158,6 +166,7 @@ type MomentoHistoria = {
   limparAntes?: boolean;
   fecharTela?: boolean;
   escolhas?: { texto: string; resposta: string }[];
+  tipo?: "mercado" | "portao";
 };
 
 const VELOCIDADE_DIGITACAO = 42;
@@ -169,24 +178,33 @@ function montarHistoria(nome: string): MomentoHistoria[] {
     { limparAntes: true, texto: "A guilda de aventureiros então começa a buscar novos candidatos para buscarem pistas do que estava acontecendo a pedido do rei…\n\nVocê então parte para se registrar na guilda de aventureiros." },
     { fundo: guildaImg, duracaoAutomatica: 3000 },
     { texto: "Ao entrar você se depara com um senhor, curando as feridas dos outros aventureiros ali no local." },
-    { fundo: melquiorImg, falante: "Melquior", texto: `Finalmente! Estávamos esperando por alguém disposto a aceitar essa missão!\nPois bem, você deve ser ${nome}. Por quê demorou tanto? O rei estava impaciente de encontrar a pessoa que se candidatou para essa missão…\nMeu nome é Melquior. Sou um dos magos da corte.\nComo já deve ter ouvido nos boatos, muitos estão desaparecendo!!`, escolhas: [
+    { fundo: melquiorImg, falante: "Melquior", texto: "Finalmente! Estávamos esperando por alguém disposto a aceitar essa missão!" },
+    { fundo: melquiorImg, falante: "Melquior", texto: `Pois bem, você deve ser ${nome}. Por quê demorou tanto? O rei estava impaciente de encontrar a pessoa que se candidatou para essa missão…` },
+    { fundo: melquiorImg, falante: "Melquior", texto: "Meu nome é Melquior. Sou um dos magos da corte." },
+    { fundo: melquiorImg, falante: "Melquior", texto: "Como já deve ter ouvido nos boatos, muitos estão desaparecendo!!", escolhas: [
       { texto: "Devem ser só uns ladrões.", resposta: "Melquior:\nLadrões é… eu não tenho certeza disso, mas sei que logo dará tudo certo." },
       { texto: "Leve-me logo ao Rei, quanto mais cedo resolvemos melhor para todos.", resposta: "Melquior:\nIguais a você já vinheram aos montes aqui, se está nessa missão pelo dinheiro, então boa sorte tentando não se matar. Precisamos muito de novas pessoas para nos ajudar." },
     ] },
     { fecharTela: true, texto: "…\n\nMelquior:\nChegamos!" },
     { fundo: casteloImg, falante: nome, texto: "Saudações meu Rei, vim aqui auxiliar na missão de busca de pistas da guilda." },
-    { fundo: casteloImg, falante: "Rei", texto: "Há dois meses, eu perdi soldados…\nDepois perdi capitães…\nE agora um vilarejo inteiro desaparece!\nEu já venci guerras, derrotei rebeliões, e pela primeira vez, não sei contra quem estou lutando.\n\nO rei olha para Melquior.\n\nMelquior abaixa a cabeça." },
-    { fundo: casteloImg, falante: "Rei", texto: "Muito bem! Como já se sabe, não só o reino de Kaestral está sofrendo com fenômenos estranhos, mas também Yingdad o reino dos elfos e Kotof reino escondido dos anões.\nQuero que você se dirija ao vilarejo ao norte da cidade, onde aconteceu o primeiro desaparecimento e verifique se conseguimos achar alguma pista do que pode estar ocorrendo.\nMelquior te ajudará com isso, é meu súdito mais leal." },
+    { fundo: casteloImg, falante: "Rei", texto: "Há dois meses, eu perdi soldados…" },
+    { fundo: casteloImg, falante: "Rei", texto: "Depois perdi capitães…" },
+    { fundo: casteloImg, falante: "Rei", texto: "E agora um vilarejo inteiro desaparece!" },
+    { fundo: casteloImg, falante: "Rei", texto: "Eu já venci guerras, derrotei rebeliões, e pela primeira vez, não sei contra quem estou lutando.\n\nO rei olha para Melquior.\n\nMelquior abaixa a cabeça." },
+    { fundo: casteloImg, falante: "Rei", texto: "Muito bem! Como já se sabe, não só o reino de Kaestral está sofrendo com fenômenos estranhos, mas também Yingdad o reino dos elfos e Kotof reino escondido dos anões." },
+    { fundo: casteloImg, falante: "Rei", texto: "Quero que você se dirija ao vilarejo ao norte da cidade, onde aconteceu o primeiro desaparecimento e verifique se conseguimos achar alguma pista do que pode estar ocorrendo." },
+    { fundo: casteloImg, falante: "Rei", texto: "Melquior te ajudará com isso, é meu súdito mais leal." },
     { texto: "Você recebeu 1 poção de cura média de Melquior.", escolhas: [
       { texto: "Ir ao mercado", resposta: "Ir ao mercado" },
       { texto: "Ir para a entrada da cidade", resposta: "Ir para a entrada da cidade" },
     ] },
-    { fundo: mercadoImg, texto: "Mercado\n\nPoção pequena: restaura 5 de vida. Custo: 20 gold.\n\nPoção média: restaura 10 de vida. Custo: 35 gold.\n\nCristal congelante: causa 5 dano e paralisa seu inimigo por 2 turnos. Custo: 50 gold.\n\nClique para ir embora em direção à entrada da cidade." },
-    { fundo: saidaMuralhaImg, texto: "A muralha de Kaestral fica para trás, e a estrada aponta para o campo aberto.\n\n[Seguir em frente]" },
-    { fundo: vilaImg, falante: nome, texto: "Estranho…\nEles não tentaram roubar nada\n\nParece que estavam seguindo o cheiro de sangue.." },
+    { fundo: mercadoImg, tipo: "mercado", texto: "Mercado" },
+    { fundo: saidaMuralhaImg, tipo: "portao", texto: "A muralha de Kaestral fica para trás, e a estrada aponta para o campo aberto." },
+    { fundo: vilaImg, falante: nome, texto: "Estranho…\nEles não tentaram roubar nada" },
+    { fundo: vilaImg, falante: nome, texto: "Parece que estavam seguindo o cheiro de sangue.." },
     { fundo: vilaImg, falante: nome, texto: "Meu Deus! O que houve aqui…" },
     { limparAntes: true, fundo: vilaImg, texto: `As portas estavam abertas.\n\nNinguém andava nas ruas, nem mesmo os animais.\n\nTinham roupas espalhadas no chão, e várias marcas de pegadas fundas na areia fofa.\n\nComo se estivessem correndo de algo.\n\n${nome} sente uma estranha energia vindo da vila.` },
-    { fundo: vilaImg, falante: nome, texto: "Não sobrou ninguém, parece até uma cidade fantasma..\n\nChance de encontrar fantasmas aumentada para 40% durante a estadia na vila.", escolhas: [
+    { fundo: vilaImg, falante: nome, texto: "Não sobrou ninguém, parece até uma cidade fantasma..", escolhas: [
       { texto: "Investigar casas", resposta: "Você se prepara para investigar as casas abandonadas." },
       { texto: "Investigar rastros de sangue", resposta: "Você segue os rastros de sangue com cuidado." },
     ] },
@@ -201,7 +219,6 @@ function TextoDigitado({ texto, ativo, onDone }: { texto: string; ativo: boolean
       if (!texto) onDone();
       return;
     }
-    setVisivel("");
     let indice = 0;
     const timer = window.setInterval(() => {
       indice += 1;
@@ -217,12 +234,40 @@ function TextoDigitado({ texto, ativo, onDone }: { texto: string; ativo: boolean
   return <p className="typewriter-text">{visivel}<span className="typing-caret" aria-hidden="true" /></p>;
 }
 
-function TelaHistoria({ personagem, onFinish }: { personagem: Personagem; onFinish: () => void }) {
-  const momentos = useMemo(() => montarHistoria(personagem.nome), [personagem.nome]);
+const ITENS_MERCADO = [
+  { id: "pocao_cura", nome: "Poção pequena", descricao: "Restaura 5 de vida.", custo: 20 },
+  { id: "pocao_media", nome: "Poção média", descricao: "Restaura 10 de vida.", custo: 35 },
+  { id: "cristal_congelante", nome: "Cristal congelante", descricao: "Causa 5 dano e paralisa seu inimigo por 2 turnos.", custo: 50 },
+] as const;
+
+function MercadoHistoria({ personagem, onComprar, onSair }: { personagem: Personagem; onComprar: (itemId: string, custo: number) => void; onSair: () => void }) {
+  return (
+    <div className="story-market" onClick={(e) => e.stopPropagation()}>
+      <p>Ouro: <strong>{personagem.stats.ouro}</strong></p>
+      <div className="story-market-items">
+        {ITENS_MERCADO.map((item) => (
+          <button key={item.id} className="market-item-button" disabled={personagem.stats.ouro < item.custo} onClick={() => onComprar(item.id, item.custo)}>
+            <strong>{item.nome}</strong>
+            <span>{item.descricao}</span>
+            <span>Custo: {item.custo} gold.</span>
+          </button>
+        ))}
+      </div>
+      <button className="btn" onClick={onSair}>Ir embora</button>
+    </div>
+  );
+}
+
+function TelaHistoria({ personagem, slot, onFinish }: { personagem: Personagem; slot: number; onFinish: (personagemAtualizado: Personagem) => void }) {
+  const [personagemHistoria, setPersonagemHistoria] = useState(() => adicionarItemAoInventario(personagem, "pocao_media"));
+  const momentos = useMemo(() => montarHistoria(personagemHistoria.nome), [personagemHistoria.nome]);
   const [indice, setIndice] = useState(0);
   const [digitacaoCompleta, setDigitacaoCompleta] = useState(false);
   const [respostaEscolha, setRespostaEscolha] = useState<string | null>(null);
   const momento = momentos[indice];
+    useEffect(() => {
+    salvarPersonagemAtualizado(personagemHistoria, slot);
+  }, [personagemHistoria, slot]);
   const textoAtual = respostaEscolha ?? momento.texto ?? "";
   const historiaTerminou = indice >= momentos.length - 1 && digitacaoCompleta;
   const concluirDigitacao = useCallback(() => setDigitacaoCompleta(true), []);
@@ -240,20 +285,27 @@ function TelaHistoria({ personagem, onFinish }: { personagem: Personagem; onFini
   }, [indice, irParaMomento, momento.duracaoAutomatica, momentos.length]);
 
   const avancar = () => {
-    if (!digitacaoCompleta || momento.duracaoAutomatica || (momento.escolhas && !respostaEscolha)) return;
-    if (historiaTerminou) onFinish();
+    if (!digitacaoCompleta || momento.duracaoAutomatica || momento.tipo || (momento.escolhas && !respostaEscolha)) return;
+    if (historiaTerminou) onFinish(personagemHistoria);
     else if (respostaEscolha === "Ir para a entrada da cidade") irParaMomento(Math.min(indice + 2, momentos.length - 1));
     else irParaMomento(Math.min(indice + 1, momentos.length - 1));
   };
 
+    const comprarItem = (itemId: string, custo: number) => {
+    setPersonagemHistoria((atual) => {
+      if (atual.stats.ouro < custo) return atual;
+      return adicionarItemAoInventario({ ...atual, stats: { ...atual.stats, ouro: atual.stats.ouro - custo } }, itemId);
+    });
+  };
   return (
     <section className={`story-screen ${momento.fecharTela ? "story-blackout" : ""} ${momento.fundo ? "story-has-background" : ""}`} style={momento.fundo ? { backgroundImage: `url(${momento.fundo})` } : undefined}>      <div className="story-vignette" />
       {textoAtual && <div className="story-dialog" onClick={avancar}>
         {momento.falante && !respostaEscolha && <strong className="story-speaker">{momento.falante}:</strong>}
         <TextoDigitado key={`${indice}-${respostaEscolha ?? "base"}`} texto={textoAtual} ativo onDone={concluirDigitacao} />        {digitacaoCompleta && momento.escolhas && !respostaEscolha && <div className="story-choices">{momento.escolhas.map((escolha) => <button key={escolha.texto} className="btn" onClick={(e) => { e.stopPropagation(); setDigitacaoCompleta(false); setRespostaEscolha(escolha.resposta); }}>{escolha.texto}</button>)}</div>}
-        {digitacaoCompleta && (!momento.escolhas || respostaEscolha) && <span className="story-hint">Clique para continuar</span>}
+        {digitacaoCompleta && momento.tipo === "mercado" && <MercadoHistoria personagem={personagemHistoria} onComprar={comprarItem} onSair={() => irParaMomento(indice + 1)} />}
+        {digitacaoCompleta && momento.tipo === "portao" && <div className="story-choices"><button className="btn" onClick={(e) => { e.stopPropagation(); irParaMomento(indice + 1); }}>Seguir em frente</button></div>}
+        {digitacaoCompleta && !momento.tipo && (!momento.escolhas || respostaEscolha) && <span className="story-hint">Clique para continuar</span>}
       </div>}
-      {historiaTerminou && <div className="story-actions"><button className="btn" onClick={onFinish}>Ir ao mercado</button><button className="btn" onClick={onFinish}>Ir para a entrada da cidade</button></div>}
     </section>
   );
 }
