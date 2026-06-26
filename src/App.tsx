@@ -6,6 +6,9 @@ import ladinaImg from "../entidades/player/ladina.png";
 import guildaImg from "../estruturas/guilda_de_aventureiros.png";
 import melquiorImg from "../estruturas/Melquior.png";
 import casteloImg from "../estruturas/castelo.png";
+import mercadoImg from "../estruturas/mercado.png";
+import saidaMuralhaImg from "../estruturas/saida_muralha.png";
+import vilaImg from "../estruturas/vila.png";
 import { GOBLINS, GOBLIN_GUERREIRO, chanceEncontroGoblin } from "../entidades/monstros/goblin";
 import { FANTASMA, chanceEncontroFantasma } from "../entidades/monstros/fantasma";
 import type { Inimigo } from "../entidades/monstros/tipos";
@@ -45,7 +48,9 @@ const PROGRESSAO_NIVEL = [
 const ATRIBUTOS_DISTRIBUIVEIS: AtributoDistribuivel[] = ["vida", "defesa", "magia", "agilidade", "ataque"];
 
 const ITENS_COMBATE = [
-  { id: "pocao_cura", nome: "Poção de cura", descricao: "Restaura 5 de vida.", cura: 5 },
+  { id: "pocao_cura", nome: "Poção pequena", descricao: "Restaura 5 de vida.", cura: 5 },
+  { id: "pocao_media", nome: "Poção média", descricao: "Restaura 10 de vida.", cura: 10 },
+  { id: "cristal_congelante", nome: "Cristal congelante", descricao: "Causa 5 de dano e paralisa o inimigo por 2 turnos.", cura: 0 },
 ] as const;
 
 const CHANCE_FUGA_BASE = 90;
@@ -161,16 +166,30 @@ function montarHistoria(nome: string): MomentoHistoria[] {
   return [
     { texto: `Olá aventureiro(a) ${nome}! …\n\nVocê está no continente de Valedorn. Onde diversas criaturas e seres mágicos andam sobre o alvorecer do dia, como os humanos, elfos e anões, além de monstros que estão sempre à espreita nos locais mais diversos desse vasto continente…` },
     { limparAntes: true, texto: "Sua história começa aqui, no centro do reino de Kaestral, cercado por muralhas gigantescas, sua paisagem é repleta de casas simples e modestas com um castelo na parte mais alta do reino, onde vive o rei dos humanos, Rei Emanoel II…\n\nPor muito tempo você foi um andarilho, mas, um fenômeno estranho chamou a atenção de todos os reinos de Valedorn… Vilarejos inteiros começaram a desaparecer, florestas foram queimadas e minas de metais preciosos foram subitamente fechadas." },
-    { limparAntes: true, texto: "A guilda de aventureiros então começa a buscar novos candidatos para buscarem pistas do que estava acontecendo a pedido do rei…\n\nVocê então se registra na guilda e ao entrar se depara com isso…" },
-    { fundo: guildaImg, duracaoAutomatica: 5000 },
-    { fundo: melquiorImg, falante: "Melquior", texto: `Eu sabia que você estava vindo… minha magia nunca falha! Pois bem, você deve ser ${nome}. Por que demorou tanto? O rei estava impaciente de encontrar a pessoa que se candidatou para essa missão…\n\nComo já deve ter ouvido nos boatos, muitos estão desaparecendo!!`, escolhas: [
-      { texto: "Perguntar o nome dele.", resposta: `Melquior:\n- Não precisamos perder tempo com formalidades, me chamo Melquior, vou te guiar ao castelo do rei.\n\n${nome}:\nCerto …` },
-      { texto: "Devem ser só uns ladrões.", resposta: "Melquior:\n- Sim.. deve ser só isso mesmo, não entendo por que tanto alarde." },
-      { texto: "Leve-me logo ao Rei, quanto mais cedo resolvemos melhor para todos.", resposta: "Melquior:\n- Iguais a você já vieram aos montes aqui, se está nessa missão pelo dinheiro, então boa sorte tentando não se matar." },
+    { limparAntes: true, texto: "A guilda de aventureiros então começa a buscar novos candidatos para buscarem pistas do que estava acontecendo a pedido do rei…\n\nVocê então parte para se registrar na guilda de aventureiros." },
+    { fundo: guildaImg, duracaoAutomatica: 3000 },
+    { texto: "Ao entrar você se depara com um senhor, curando as feridas dos outros aventureiros ali no local." },
+    { fundo: melquiorImg, falante: "Melquior", texto: `Finalmente! Estávamos esperando por alguém disposto a aceitar essa missão!\nPois bem, você deve ser ${nome}. Por quê demorou tanto? O rei estava impaciente de encontrar a pessoa que se candidatou para essa missão…\nMeu nome é Melquior. Sou um dos magos da corte.\nComo já deve ter ouvido nos boatos, muitos estão desaparecendo!!`, escolhas: [
+      { texto: "Devem ser só uns ladrões.", resposta: "Melquior:\nLadrões é… eu não tenho certeza disso, mas sei que logo dará tudo certo." },
+      { texto: "Leve-me logo ao Rei, quanto mais cedo resolvemos melhor para todos.", resposta: "Melquior:\nIguais a você já vinheram aos montes aqui, se está nessa missão pelo dinheiro, então boa sorte tentando não se matar. Precisamos muito de novas pessoas para nos ajudar." },
     ] },
     { fecharTela: true, texto: "…\n\nMelquior:\nChegamos!" },
-    { fundo: casteloImg, texto: `${nome}:\n- Saudações meu Rei, vim aqui auxiliar na missão de busca de pistas da guilda.\n\nRei:\n- Muito bem! Como já se sabe, não só o reino de Kaestral está sofrendo com fenômenos estranhos, mas também Yingdad o reino dos elfos e Kotof reino escondido dos anões.` },
-    { limparAntes: true, fundo: casteloImg, texto: "Rei:\n- Quero que você se dirija ao vilarejo ao norte da cidade, onde aconteceu o primeiro desaparecimento e verifique se conseguimos achar alguma pista do que pode estar ocorrendo." },
+    { fundo: casteloImg, falante: nome, texto: "Saudações meu Rei, vim aqui auxiliar na missão de busca de pistas da guilda." },
+    { fundo: casteloImg, falante: "Rei", texto: "Há dois meses, eu perdi soldados…\nDepois perdi capitães…\nE agora um vilarejo inteiro desaparece!\nEu já venci guerras, derrotei rebeliões, e pela primeira vez, não sei contra quem estou lutando.\n\nO rei olha para Melquior.\n\nMelquior abaixa a cabeça." },
+    { fundo: casteloImg, falante: "Rei", texto: "Muito bem! Como já se sabe, não só o reino de Kaestral está sofrendo com fenômenos estranhos, mas também Yingdad o reino dos elfos e Kotof reino escondido dos anões.\nQuero que você se dirija ao vilarejo ao norte da cidade, onde aconteceu o primeiro desaparecimento e verifique se conseguimos achar alguma pista do que pode estar ocorrendo.\nMelquior te ajudará com isso, é meu súdito mais leal." },
+    { texto: "Você recebeu 1 poção de cura média de Melquior.", escolhas: [
+      { texto: "Ir ao mercado", resposta: "Ir ao mercado" },
+      { texto: "Ir para a entrada da cidade", resposta: "Ir para a entrada da cidade" },
+    ] },
+    { fundo: mercadoImg, texto: "Mercado\n\nPoção pequena: restaura 5 de vida. Custo: 20 gold.\n\nPoção média: restaura 10 de vida. Custo: 35 gold.\n\nCristal congelante: causa 5 dano e paralisa seu inimigo por 2 turnos. Custo: 50 gold.\n\nClique para ir embora em direção à entrada da cidade." },
+    { fundo: saidaMuralhaImg, texto: "A muralha de Kaestral fica para trás, e a estrada aponta para o campo aberto.\n\n[Seguir em frente]" },
+    { fundo: vilaImg, falante: nome, texto: "Estranho…\nEles não tentaram roubar nada\n\nParece que estavam seguindo o cheiro de sangue.." },
+    { fundo: vilaImg, falante: nome, texto: "Meu Deus! O que houve aqui…" },
+    { limparAntes: true, fundo: vilaImg, texto: `As portas estavam abertas.\n\nNinguém andava nas ruas, nem mesmo os animais.\n\nTinham roupas espalhadas no chão, e várias marcas de pegadas fundas na areia fofa.\n\nComo se estivessem correndo de algo.\n\n${nome} sente uma estranha energia vindo da vila.` },
+    { fundo: vilaImg, falante: nome, texto: "Não sobrou ninguém, parece até uma cidade fantasma..\n\nChance de encontrar fantasmas aumentada para 40% durante a estadia na vila.", escolhas: [
+      { texto: "Investigar casas", resposta: "Você se prepara para investigar as casas abandonadas." },
+      { texto: "Investigar rastros de sangue", resposta: "Você segue os rastros de sangue com cuidado." },
+    ] },
   ];
 }
 
@@ -182,6 +201,7 @@ function TextoDigitado({ texto, ativo, onDone }: { texto: string; ativo: boolean
       if (!texto) onDone();
       return;
     }
+    setVisivel("");
     let indice = 0;
     const timer = window.setInterval(() => {
       indice += 1;
@@ -222,12 +242,12 @@ function TelaHistoria({ personagem, onFinish }: { personagem: Personagem; onFini
   const avancar = () => {
     if (!digitacaoCompleta || momento.duracaoAutomatica || (momento.escolhas && !respostaEscolha)) return;
     if (historiaTerminou) onFinish();
+    else if (respostaEscolha === "Ir para a entrada da cidade") irParaMomento(Math.min(indice + 2, momentos.length - 1));
     else irParaMomento(Math.min(indice + 1, momentos.length - 1));
   };
 
   return (
-    <section className={`story-screen ${momento.fecharTela ? "story-blackout" : ""}`} style={momento.fundo ? { backgroundImage: `url(${momento.fundo})` } : undefined}>
-      <div className="story-vignette" />
+    <section className={`story-screen ${momento.fecharTela ? "story-blackout" : ""} ${momento.fundo ? "story-has-background" : ""}`} style={momento.fundo ? { backgroundImage: `url(${momento.fundo})` } : undefined}>      <div className="story-vignette" />
       {textoAtual && <div className="story-dialog" onClick={avancar}>
         {momento.falante && !respostaEscolha && <strong className="story-speaker">{momento.falante}:</strong>}
         <TextoDigitado key={`${indice}-${respostaEscolha ?? "base"}`} texto={textoAtual} ativo onDone={concluirDigitacao} />        {digitacaoCompleta && momento.escolhas && !respostaEscolha && <div className="story-choices">{momento.escolhas.map((escolha) => <button key={escolha.texto} className="btn" onClick={(e) => { e.stopPropagation(); setDigitacaoCompleta(false); setRespostaEscolha(escolha.resposta); }}>{escolha.texto}</button>)}</div>}
@@ -392,6 +412,11 @@ function TelaCombate({ personagem, slot, onBack, onDeath }: { personagem: Person
       const resultadoXp = aplicarXp({ ...player, stats: { ...player.stats, ouro: player.stats.ouro + inimigoBase.ouroDrop } }, inimigoBase.xpDrop);
       setPlayer(resultadoXp.personagem);
       if (resultadoXp.niveisGanhos > 0) {
+        const vidaPerdida = Math.max(0, resultadoXp.personagem.stats.vida - vidaPlayer);
+        const vidaRestaurada = Math.ceil(vidaPerdida * 0.5);
+        const novaVidaPlayer = Math.min(resultadoXp.personagem.stats.vida, vidaPlayer + vidaRestaurada);
+        setVidaPlayer(novaVidaPlayer);
+        setLog((l) => [`Subiu de nível! ${resultadoXp.personagem.nome} restaurou ${vidaRestaurada} de vida.`, ...l]);
         setNiveisPendentes((valor) => valor + resultadoXp.niveisGanhos);
         setModalNivel(true);
       }
