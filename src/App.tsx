@@ -3,7 +3,7 @@ import telaInicial from "../fotos/tela_inicial.png";
 import guerreiroImg from "../entidades/player/guerreiro.png";
 import magoImg from "../entidades/player/mago.png";
 import ladinaImg from "../entidades/player/ladina.png";
-import { GOBLINS, GOBLIN_GUERREIRO } from "../entidades/monstros/goblin";
+import { GOBLINS, GOBLIN_GUERREIRO, chanceEncontroGoblin } from "../entidades/monstros/goblin";
 import { FANTASMA, chanceEncontroFantasma } from "../entidades/monstros/fantasma";
 import type { Inimigo } from "../entidades/monstros/tipos";
 import "./App.css";
@@ -28,21 +28,21 @@ const CLASSES: Record<ClasseId, ClasseConfig> = {
 
 const PROGRESSAO_NIVEL = [
   { nivel: 1, xpProximo: 20, pontosStatus: 0 },
-  { nivel: 2, xpProximo: 55, pontosStatus: 5 },
-  { nivel: 3, xpProximo: 90, pontosStatus: 5 },
-  { nivel: 4, xpProximo: 150, pontosStatus: 5 },
-  { nivel: 5, xpProximo: 240, pontosStatus: 5 },
-  { nivel: 6, xpProximo: 320, pontosStatus: 5 },
-  { nivel: 7, xpProximo: 470, pontosStatus: 5 },
-  { nivel: 8, xpProximo: 540, pontosStatus: 5 },
-  { nivel: 9, xpProximo: 590, pontosStatus: 5 },
-  { nivel: 10, xpProximo: 670, pontosStatus: 5 },
+  { nivel: 2, xpProximo: 55, pontosStatus: 7 },
+  { nivel: 3, xpProximo: 90, pontosStatus: 7 },
+  { nivel: 4, xpProximo: 150, pontosStatus: 7 },
+  { nivel: 5, xpProximo: 240, pontosStatus: 7 },
+  { nivel: 6, xpProximo: 320, pontosStatus: 7 },
+  { nivel: 7, xpProximo: 470, pontosStatus: 7 },
+  { nivel: 8, xpProximo: 540, pontosStatus: 7 },
+  { nivel: 9, xpProximo: 590, pontosStatus: 7 },
+  { nivel: 10, xpProximo: 670, pontosStatus: 7 },
 ];
 
 const ATRIBUTOS_DISTRIBUIVEIS: AtributoDistribuivel[] = ["vida", "defesa", "magia", "agilidade", "ataque"];
 
 const ITENS_COMBATE = [
-  { id: "pocao_cura", nome: "Poção de cura", descricao: "Restaura 5 de vida.", cura: 5 },
+  { id: "pocao_cura", nome: "Poção de cura", descricao: "Restaura 5 de vida.", cura: 10 },
 ] as const;
 
 const CHANCE_FUGA_BASE = 90;
@@ -53,19 +53,36 @@ const rolarPorcentagem = () => Math.random() * 100;
 
 const sortearInteiro = (minimo: number, maximo: number) => Math.floor(Math.random() * (maximo - minimo + 1)) + minimo;
 
+function criarFantasma(nivelJogador: number): Inimigo {
+  return {
+    ...FANTASMA,
+    nivel: nivelJogador,
+    vidaMaxima: sortearInteiro(40, 54),
+    ouroDrop: sortearInteiro(7, 15),
+    xpDrop: sortearInteiro(5, 15),
+  };
+}
+
+function criarGoblin(nivelJogador: number): Inimigo {
+  const goblin = GOBLINS[Math.floor(Math.random() * GOBLINS.length)];
+  const xpDrop = goblin.id === "goblin_xama" ? sortearInteiro(3, 5) : sortearInteiro(4, 5);
+  return { ...goblin, nivel: nivelJogador, xpDrop };
+}
+
 function criarEncontroMonstro(nivelJogador: number): Inimigo {
   const chanceFantasma = chanceEncontroFantasma(nivelJogador);
-  if (rolarPorcentagem() < chanceFantasma) {
-    return {
-      ...FANTASMA,
-      nivel: nivelJogador,
-      vidaMaxima: sortearInteiro(40, 54),
-      ouroDrop: sortearInteiro(7, 15),
-      xpDrop: sortearInteiro(5, 15),
-    };
-  }
+  const chanceGoblin = chanceEncontroGoblin(nivelJogador);
+  const rolagem = rolarPorcentagem();
 
-  return GOBLINS[Math.floor(Math.random() * GOBLINS.length)];
+  if (rolagem < chanceFantasma) return criarFantasma(nivelJogador);
+  if (rolagem < chanceFantasma + chanceGoblin) return criarGoblin(nivelJogador);
+  return chanceGoblin > 0 ? criarGoblin(nivelJogador) : criarFantasma(nivelJogador);
+}
+
+function normalizarProgresso(progresso?: Progresso): Progresso {
+  if (!progresso) return { nivel: 1, xp: 0, xpProximo: 20, pontosStatus: 0 };
+  const regra = PROGRESSAO_NIVEL.find((item) => item.nivel === progresso.nivel);
+  return { ...progresso, xpProximo: regra?.xpProximo ?? progresso.xpProximo };
 }
 
 function normalizarPersonagem(p: Personagem): Personagem {
@@ -75,8 +92,9 @@ function normalizarPersonagem(p: Personagem): Personagem {
     habilidade: p.habilidade || classe.habilidade,
     magiaNome: p.magiaNome || classe.magiaNome,
     imagem: p.imagem || classe.imagem,
-    progresso: p.progresso || { nivel: 1, xp: 0, xpProximo: 20, pontosStatus: 0 },
-    inventario: p.inventario ?? [{ id: "pocao_cura", quantidade: 1 }],
+    progresso: normalizarProgresso(p.progresso),
+    stats: { ...classe.base, ...p.stats },
+    inventario: p.inventario ?? [{ id: "pocao_cura", quantidade: 2 }],
   };
 }
 
@@ -89,9 +107,9 @@ function aplicarXp(personagem: Personagem, xpGanho: number): { personagem: Perso
     const regra = PROGRESSAO_NIVEL.find((item) => item.nivel === proxNivel);
     progresso = {
       nivel: proxNivel,
-      xp: progresso.xp - progresso.xpProximo,
+      xp: progresso.xp,
       xpProximo: regra?.xpProximo ?? Math.floor(progresso.xpProximo * 1.45),
-      pontosStatus: progresso.pontosStatus + (regra?.pontosStatus ?? 3),
+      pontosStatus: progresso.pontosStatus + (regra?.pontosStatus ?? 7),
     };
     niveisGanhos += 1;
   }
@@ -118,7 +136,7 @@ export default function App() {
         </section>
       )}
       {tela === "slots" && <TelaSlots onBack={() => setTela("menu")} onSelect={(slot) => { setSlotSelecionado(slot); setTela("criar"); }} />}
-      {tela === "criar" && slotSelecionado !== null && <CriarPersonagem slot={slotSelecionado} voltar={() => setTela("slots")} voltarMenu={() => setTela("menu")} />}
+      {tela === "criar" && slotSelecionado !== null && <CriarPersonagem slot={slotSelecionado} voltar={() => setTela("slots")} iniciarHistoria={(personagem) => { setPersonagemAtivo(personagem); setSlotAtivo(slotSelecionado); setTela("combate"); }} />}
       {tela === "continuar" && <TelaContinuar onBack={() => setTela("menu")} onFight={(p, slot) => { setPersonagemAtivo(p); setSlotAtivo(slot); setTela("combate"); }} />}
       {tela === "combate" && personagemAtivo && slotAtivo !== null && <TelaCombate personagem={personagemAtivo} slot={slotAtivo} onBack={() => setTela("continuar")} onDeath={() => { localStorage.removeItem(`save${slotAtivo}`); setPersonagemAtivo(null); setSlotAtivo(null); setTela("menu"); }} />}    </main>);
 }
@@ -188,6 +206,7 @@ function TelaCombate({ personagem, slot, onBack, onDeath }: { personagem: Person
   useEffect(() => {
     salvarPersonagemAtualizado(player, slot);
     }, [player, slot]);
+
   function iniciarNovoCombate(personagemAtual: Personagem = player) {
     const proximoInimigo = criarEncontroMonstro(personagemAtual.progresso.nivel);
     setInimigosAtivos([criarInimigoEmCombate(proximoInimigo)]);
@@ -399,17 +418,14 @@ function ModalConfirmacao({ titulo, mensagem, confirmar, cancelar, perigo = fals
   );
 }
 
-function CriarPersonagem({ slot, voltar, voltarMenu }: { slot: number; voltar: () => void; voltarMenu: () => void }) {
-  const [nome, setNome] = useState("");
+function CriarPersonagem({ slot, voltar, iniciarHistoria }: { slot: number; voltar: () => void; iniciarHistoria: (personagem: Personagem) => void }) {  const [nome, setNome] = useState("");
   const [classe, setClasse] = useState<ClasseId>("guerreiro");
   const classeAtual = CLASSES[classe];
-  const [confirmacaoCriacao, setConfirmacaoCriacao] = useState(false);
-
+  const [personagemCriado, setPersonagemCriado] = useState<Personagem | null>(null);
   function salvar() {
     if (!nome.trim()) return alert("Digite um nome.");
-    const personagem: Personagem = { nome, classe, stats: { ...classeAtual.base }, habilidade: classeAtual.habilidade, magiaNome: classeAtual.magiaNome, imagem: classeAtual.imagem, progresso: { nivel: 1, xp: 0, xpProximo: 100, pontosStatus: 0 }, inventario: [{ id: "pocao_cura", quantidade: 1 }] };
-    localStorage.setItem(`save${slot}`, JSON.stringify(personagem));
-    setConfirmacaoCriacao(true);
+    const personagem: Personagem = { nome, classe, stats: { ...classeAtual.base }, habilidade: classeAtual.habilidade, magiaNome: classeAtual.magiaNome, imagem: classeAtual.imagem, progresso: { nivel: 1, xp: 0, xpProximo: 20, pontosStatus: 0 }, inventario: [{ id: "pocao_cura", quantidade: 2 }] };    localStorage.setItem(`save${slot}`, JSON.stringify(personagem));
+    setPersonagemCriado(personagem);
   }
 
   return <section className="panel"><h2>Criar Personagem</h2><input className="field" placeholder="Nome" value={nome} onChange={(e) => setNome(e.target.value)}  />
@@ -417,4 +433,16 @@ function CriarPersonagem({ slot, voltar, voltarMenu }: { slot: number; voltar: (
   <option value="guerreiro">Guerreiro</option><option value="mago">Mago</option>
     <option value="ladino">Ladino</option></select><div className="class-preview">
       <img src={classeAtual.imagem} alt={classeAtual.nome} className="class-img" />
-     <h3>{classeAtual.nome}</h3><p>Vida: {classeAtual.base.vida}</p><p>Defesa: {classeAtual.base.defesa}</p><p>Magia: {classeAtual.base.magia}</p><p>Agilidade: {classeAtual.base.agilidade}</p><p>Ataque: {classeAtual.base.ataque}</p><p>Ouro: {classeAtual.base.ouro}</p><p><strong>Habilidade:</strong> {classeAtual.habilidade}</p><p><strong>Magia:</strong> {classeAtual.magiaNome}</p></div><div className="row"><button className="btn" onClick={salvar}>Criar</button><button className="btn" onClick={voltar}>Voltar</button></div>{confirmacaoCriacao && <ModalConfirmacao titulo="Personagem criado!" mensagem={`${nome} foi salvo no slot ${slot}.`} confirmar="Ir para o menu" onConfirmar={voltarMenu} />}</section>;}
+     <h3>{classeAtual.nome}</h3>
+     <p>Vida: {classeAtual.base.vida}</p>
+     <p>Defesa: {classeAtual.base.defesa}</p>
+     <p>Magia: {classeAtual.base.magia}</p>
+     <p>Agilidade: {classeAtual.base.agilidade}</p>
+     <p>Ataque: {classeAtual.base.ataque}</p>
+     <p>Ouro: {classeAtual.base.ouro}</p>
+     <p><strong>Habilidade:</strong> {classeAtual.habilidade}</p>
+     <p><strong>Magia:</strong> {classeAtual.magiaNome}</p>
+     </div><div className="row">
+      <button className="btn" onClick={salvar}>Criar</button>
+      <button className="btn" onClick={voltar}>Voltar</button>
+    </div>{personagemCriado && <ModalConfirmacao titulo="A jornada começa!" mensagem={`${personagemCriado.nome} foi salvo no slot ${slot}. As brumas de Valedorn se abrem diante de você...`} confirmar="Iniciar história" onConfirmar={() => iniciarHistoria(personagemCriado)} />}</section>;}
