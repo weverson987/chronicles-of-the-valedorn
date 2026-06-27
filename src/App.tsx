@@ -156,7 +156,7 @@ const ITENS_MERCADO = [
 ] as const;
 
 const CHANCE_FUGA_BASE = 90;
-const VELOCIDADE_DIGITACAO = 1;
+const VELOCIDADE_DIGITACAO = 34;
 
 // ─────────────────────────────────────────────
 // UTILITÁRIOS PUROS
