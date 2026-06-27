@@ -14,18 +14,35 @@ import florestaSombriaImg from "../estruturas/floresta_sombria.jpg";
 import ritualImg from "../estruturas/ritual.png";
 import taylorMachucadoImg from "../entidades/npc/taylor_machucado.png";
 import manticoraImg from "../entidades/monstros/manticora_mini_boss.png";
+import reinoAnoesImg from "../estruturas/reino_anoes.png";
+import anaoImg from "../entidades/npc/anao.png";
+import ogroImg from "../entidades/monstros/ogro.png";
+import reinoElfosImg from "../estruturas/reino_elfos.png";
+import laboratorioImg from "../estruturas/laboratorio.png";
+import reiElfoNegroImg from "../entidades/monstros/rei_elfo_negro.png";
+import bossLichImg from "../entidades/monstros/boss_lich.png";
 import { GOBLINS, GOBLIN_GUERREIRO } from "../entidades/monstros/goblin";
 import { FANTASMA } from "../entidades/monstros/fantasma";
 import { ESQUELETO } from "../entidades/monstros/esqueleto";
 import type { Inimigo } from "../entidades/monstros/tipos";
 import "./App.css";
 
+// ─────────────────────────────────────────────
+// TIPOS
+// ─────────────────────────────────────────────
 
 type Tela = "menu" | "slots" | "criar" | "continuar" | "historia" | "combate";
 type ClasseId = "guerreiro" | "mago" | "ladino";
 type AcaoCombate = "ataque" | "magia" | "habilidade" | "item" | "fugir";
 type AtributoDistribuivel = "vida" | "defesa" | "magia" | "agilidade" | "ataque";
-type TipoInimigo = "goblin" | "fantasma" | "esqueleto" | "manticora";
+type TipoInimigo =
+  | "goblin"
+  | "fantasma"
+  | "esqueleto"
+  | "manticora"
+  | "ogro"
+  | "rei_elfo_negro"
+  | "lich";
 
 type Stats = {
   vida: number;
@@ -57,6 +74,9 @@ type Personagem = {
   nome: string;
   classe: ClasseId;
   stats: Stats;
+  // vida atual (vidaAtual <= stats.vida). É salva junto do resto do personagem
+  // e só volta a 100% quando o jogador sobe de nível.
+  vidaAtual: number;
   habilidade: string;
   magiaNome: string;
   imagem: string;
@@ -71,21 +91,21 @@ type Personagem = {
 const CLASSES: Record<ClasseId, ClasseConfig> = {
   guerreiro: {
     nome: "Guerreiro",
-    base: { vida: 15, defesa: 5, magia: 0, agilidade: 5, ataque: 15, ouro: 30 },
+    base: { vida: 15, defesa: 5, magia: 0, agilidade: 5, ataque: 20, ouro: 30 },
     habilidade: "Incansável",
     magiaNome: "Golpe Arcano",
     imagem: guerreiroImg,
   },
   mago: {
     nome: "Mago",
-    base: { vida: 11, defesa: 3, magia: 15, agilidade: 5, ataque: 5, ouro: 30 },
+    base: { vida: 11, defesa: 3, magia: 20, agilidade: 5, ataque: 5, ouro: 30 },
     habilidade: "Fireball",
     magiaNome: "Fireball",
     imagem: magoImg,
   },
   ladino: {
     nome: "Ladino",
-    base: { vida: 10, defesa: 3, magia: 5, agilidade: 10, ataque: 8, ouro: 30 },
+    base: { vida: 10, defesa: 3, magia: 5, agilidade: 13, ataque: 15, ouro: 30 },
     habilidade: "Dark Poison",
     magiaNome: "Dark Poison",
     imagem: ladinaImg,
@@ -94,15 +114,15 @@ const CLASSES: Record<ClasseId, ClasseConfig> = {
 
 const PROGRESSAO_NIVEL: Array<{ nivel: number; xpProximo: number; pontosStatus: number }> = [
   { nivel: 1, xpProximo: 20, pontosStatus: 0 },
-  { nivel: 2, xpProximo: 55, pontosStatus: 7 },
-  { nivel: 3, xpProximo: 90, pontosStatus: 7 },
-  { nivel: 4, xpProximo: 150, pontosStatus: 7 },
-  { nivel: 5, xpProximo: 240, pontosStatus: 7 },
-  { nivel: 6, xpProximo: 320, pontosStatus: 7 },
-  { nivel: 7, xpProximo: 470, pontosStatus: 7 },
-  { nivel: 8, xpProximo: 540, pontosStatus: 7 },
-  { nivel: 9, xpProximo: 590, pontosStatus: 7 },
-  { nivel: 10, xpProximo: 670, pontosStatus: 7 },
+  { nivel: 2, xpProximo: 55, pontosStatus: 10 },
+  { nivel: 3, xpProximo: 90, pontosStatus: 10 },
+  { nivel: 4, xpProximo: 150, pontosStatus: 10 },
+  { nivel: 5, xpProximo: 240, pontosStatus: 10 },
+  { nivel: 6, xpProximo: 320, pontosStatus: 10 },
+  { nivel: 7, xpProximo: 470, pontosStatus: 10 },
+  { nivel: 8, xpProximo: 540, pontosStatus: 10 },
+  { nivel: 9, xpProximo: 590, pontosStatus: 10 },
+  { nivel: 10, xpProximo: 670, pontosStatus: 10 },
 ];
 
 const ATRIBUTOS_DISTRIBUIVEIS: AtributoDistribuivel[] = [
@@ -115,7 +135,7 @@ const ATRIBUTOS_DISTRIBUIVEIS: AtributoDistribuivel[] = [
 
 const ITENS_COMBATE = [
   { id: "pocao_cura", nome: "Poção pequena", descricao: "Restaura 5 de vida.", cura: 5 },
-  { id: "pocao_media", nome: "Poção média", descricao: "Restaura 10 de vida.", cura: 10 },
+  { id: "pocao_media", nome: "Poção média", descricao: "Restaura 20 de vida.", cura: 20 },
   {
     id: "cristal_congelante",
     nome: "Cristal congelante",
@@ -125,18 +145,18 @@ const ITENS_COMBATE = [
 ] as const;
 
 const ITENS_MERCADO = [
-  { id: "pocao_cura", nome: "Poção pequena", descricao: "Restaura 5 de vida.", custo: 20 },
-  { id: "pocao_media", nome: "Poção média", descricao: "Restaura 10 de vida.", custo: 35 },
+  { id: "pocao_cura", nome: "Poção pequena", descricao: "Restaura 5 de vida.", custo: 5 },
+  { id: "pocao_media", nome: "Poção média", descricao: "Restaura 20 de vida.", custo: 15 },
   {
     id: "cristal_congelante",
     nome: "Cristal congelante",
     descricao: "Causa 5 dano e paralisa seu inimigo por 2 turnos.",
-    custo: 50,
+    custo: 30,
   },
 ] as const;
 
 const CHANCE_FUGA_BASE = 90;
-const VELOCIDADE_DIGITACAO = 42;
+const VELOCIDADE_DIGITACAO = 1;
 
 // ─────────────────────────────────────────────
 // UTILITÁRIOS PUROS
@@ -159,7 +179,7 @@ const barraPct = (atual: number, maximo: number) =>
 
 function criarGoblin(nivelJogador: number, indice: number): Inimigo {
   const goblin = GOBLINS[indice % GOBLINS.length];
-  const xpDrop = goblin.id === "goblin_xama" ? sortearInteiro(3, 5) : sortearInteiro(4, 5);
+  const xpDrop = goblin.id === "goblin_xama" ? sortearInteiro(10, 15) : sortearInteiro(8, 9);
   return { ...goblin, nivel: nivelJogador, xpDrop };
 }
 
@@ -167,9 +187,9 @@ function criarFantasma(nivelJogador: number): Inimigo {
   return {
     ...FANTASMA,
     nivel: nivelJogador,
-    vidaMaxima: sortearInteiro(40, 54),
+    vidaMaxima: sortearInteiro(35, 45),
     ouroDrop: sortearInteiro(7, 15),
-    xpDrop: sortearInteiro(5, 15),
+    xpDrop: sortearInteiro(10, 20),
   };
 }
 
@@ -177,7 +197,7 @@ function criarEsqueleto(nivelJogador: number): Inimigo {
   return {
     ...ESQUELETO,
     nivel: nivelJogador,
-    vidaMaxima: sortearInteiro(55, 75),
+    vidaMaxima: sortearInteiro(30, 40),
     ouroDrop: sortearInteiro(15, 24),
     xpDrop: sortearInteiro(20, 30),
   };
@@ -188,8 +208,8 @@ function criarManticora(nivelJogador: number): Inimigo {
     id: "manticora",
     nome: "Manticora",
     nivel: nivelJogador,
-    vidaMaxima: 85,
-    ataque: 6,
+    vidaMaxima: 65,
+    ataque: 3,
     defesa: 3,
     magia: 2,
     agilidade: 7,
@@ -197,10 +217,73 @@ function criarManticora(nivelJogador: number): Inimigo {
     xpDrop: 45,
     imagem: manticoraImg,
     golpes: [
-      { nome: "Garras", tipo: "ataque" as const, dano: 5 },
-      { nome: "Ferrão venenoso", tipo: "habilidade" as const, dano: 7 },
+      { nome: "Garras", tipo: "ataque" as const, dano: 3 },
+      { nome: "Ferrão venenoso", tipo: "habilidade" as const, dano: 5 },
     ],
     falas: { aoMorrer: "GRRAAAH!" },
+  };
+}
+
+function criarOgro(nivelJogador: number): Inimigo {
+  return {
+    id: "ogro_mini_boss",
+    nome: "Ogro",
+    nivel: nivelJogador,
+    vidaMaxima: 45,
+    ataque: 2,
+    defesa: 5,
+    magia: 0,
+    agilidade: 4,
+    ouroDrop: 40,
+    xpDrop: 60,
+    imagem: ogroImg,
+    golpes: [
+      { nome: "Tapa brutal", tipo: "ataque" as const, dano: 4 },
+      { nome: "Esmagar", tipo: "habilidade" as const, dano: 5 },
+    ],
+    falas: { aoMorrer: "AAARGH!!" },
+  };
+}
+
+function criarReiElfoNegro(nivelJogador: number): Inimigo {
+  return {
+    id: "rei_elfo_negro",
+    nome: "Rei Elfo Negro",
+    nivel: nivelJogador,
+    vidaMaxima: 140,
+    ataque: 9,
+    defesa: 6,
+    magia: 10,
+    agilidade: 6,
+    ouroDrop: 0,
+    xpDrop: 90,
+    imagem: reiElfoNegroImg,
+    golpes: [
+      { nome: "Lâmina Negra", tipo: "ataque" as const, dano: 9 },
+      { nome: "Magia Corrompida", tipo: "magia" as const, dano: 10 },
+    ],
+    falas: { aoMorrer: "Melquior... você prometeu..." },
+  };
+}
+
+function criarLich(nivelJogador: number): Inimigo {
+  return {
+    id: "boss_lich",
+    nome: "Melquior, o Lich",
+    nivel: nivelJogador,
+    vidaMaxima: 200,
+    ataque: 10,
+    defesa: 8,
+    magia: 14,
+    agilidade: 5,
+    ouroDrop: 0,
+    xpDrop: 150,
+    imagem: bossLichImg,
+    golpes: [
+      { nome: "Toque da Morte", tipo: "magia" as const, dano: 11 },
+      { nome: "Maldição Sombria", tipo: "habilidade" as const, dano: 13 },
+    ],
+    falas: { aoMorrer: "Desculpe... eu realmente tentei..." },
   };
 }
 
@@ -212,6 +295,12 @@ function criarInimigoParaCombate(tipo: TipoInimigo, nivelJogador: number, indice
       return criarEsqueleto(nivelJogador);
     case "manticora":
       return criarManticora(nivelJogador);
+    case "ogro":
+      return criarOgro(nivelJogador);
+    case "rei_elfo_negro":
+      return criarReiElfoNegro(nivelJogador);
+    case "lich":
+      return criarLich(nivelJogador);
     case "goblin":
     default:
       return criarGoblin(nivelJogador, indiceGoblin);
@@ -237,13 +326,17 @@ function normalizarProgresso(progresso?: Progresso): Progresso {
 
 function normalizarPersonagem(p: Personagem): Personagem {
   const classe = CLASSES[p.classe];
+  const stats = { ...classe.base, ...p.stats };
   return {
     ...p,
     habilidade: p.habilidade || classe.habilidade,
     magiaNome: p.magiaNome || classe.magiaNome,
     imagem: p.imagem || classe.imagem,
     progresso: normalizarProgresso(p.progresso),
-    stats: { ...classe.base, ...p.stats },
+    stats,
+    // garante que a vida atual nunca exceda a vida máxima e que personagens
+    // salvos antes dessa funcionalidade existir comecem com a vida cheia.
+    vidaAtual: Math.min(p.vidaAtual ?? stats.vida, stats.vida),
     inventario: p.inventario ?? [{ id: "pocao_cura", quantidade: 1 }],
   };
 }
@@ -313,7 +406,7 @@ type MomentoId =
   | "mercado"
   | "porta_cidade"
   | "vila_entrada"
-  | "goblin_1" | "goblin_2" | "goblin_3" | "goblin_4"
+  | "goblin_1" | "goblin_2" | "goblin_4"
   | "vila_exploracao"
   | "escolha_vila"              // investigar casas ou rastros
   | "forja_entrada"
@@ -337,6 +430,29 @@ type MomentoId =
   | "castelo_retorno"
   | "castelo_rei_fala"
   | "castelo_decisao"           // seguir para reino dos anões (fim da cena 07)
+  // ── Cena 08 — reino dos anões ──
+  | "anoes_chegada"
+  | "anoes_combate_1" | "anoes_combate_2" | "anoes_combate_3" | "anoes_combate_4" | "anoes_combate_5"
+  | "ogro_boss"
+  | "pos_ogro"
+  // ── Cena 09 — reino dos elfos ──
+  | "elfos_chegada"
+  | "elfos_guardas"
+  | "elfos_rainha"
+  | "escolha_arma"
+  | "elfos_rei_pergunta"
+  | "elfos_explicacao"
+  // ── Cena 10 — laboratório ──
+  | "laboratorio_entrada"
+  | "rei_elfo_negro_boss"
+  | "pos_rei_elfo_negro"
+  // ── Cena 11 — plot twist ──
+  | "plot_twist"
+  // ── Cena 12 — boss final ──
+  | "boss_final_intro"
+  | "lich_boss"
+  // ── Cena final ──
+  | "cena_final"
   | "fim_historia";
 
 type Recompensa = { itemId: string; quantidade: number; mensagem: string };
@@ -356,7 +472,7 @@ type Momento = {
   recompensa?: Recompensa;
 };
 
-function montarHistoria(nome: string): Momento[] {
+function montarHistoria(nome: string, classe: ClasseId): Momento[] {
   return [
     // ── CENA 01 ──────────────────────────────────────────────────────────
     {
@@ -495,8 +611,7 @@ function montarHistoria(nome: string): Momento[] {
     {
       id: "vila_entrada",
       fundo: vilaImg,
-      falante: nome,
-      texto: "Estranho…\nEles não tentaram roubar nada",
+      texto: "Você chega ao vilarejo ao norte. Um silêncio estranho paira no ar.",
     },
     {
       id: "goblin_1",
@@ -506,6 +621,13 @@ function montarHistoria(nome: string): Momento[] {
       indiceGoblin: 0,
       texto: "Um goblin surge entre as ruínas.",
     },
+    // fala APÓS derrotar o primeiro goblin
+    {
+      id: "goblin_1",
+      fundo: vilaImg,
+      falante: nome,
+      texto: "Estranho…\nEles não tentaram roubar nada.",
+    },
     {
       id: "goblin_2",
       fundo: vilaImg,
@@ -514,20 +636,14 @@ function montarHistoria(nome: string): Momento[] {
       indiceGoblin: 1,
       texto: "Outro goblin aparece, farejando o sangue.",
     },
+    // fala APÓS derrotar o segundo goblin
     {
       id: "goblin_2",
       fundo: vilaImg,
       falante: nome,
       texto: "Parece que estavam seguindo o cheiro de sangue..",
     },
-    {
-      id: "goblin_3",
-      fundo: vilaImg,
-      tipo: "combate",
-      inimigoTipo: "goblin",
-      indiceGoblin: 2,
-      texto: "Mais um goblin aparece atraído pelo combate.",
-    },
+    // foto da vila novamente + fala, só depois de derrotar o segundo goblin
     {
       id: "goblin_4",
       fundo: vilaImg,
@@ -890,12 +1006,414 @@ function montarHistoria(nome: string): Momento[] {
       fundo: casteloImg,
       texto: "Melquior sorri e entrega mais 2 poções de cura.",
       escolhas: [
-        { texto: "Seguir para o reino dos anões", proxId: "fim_historia" },
+        { texto: "Seguir para o reino dos anões", proxId: "anoes_chegada" },
       ],
+    },
+
+    // ── CENA 08 — REINO DOS ANÕES ──────────────────────────────────────────
+    {
+      id: "anoes_chegada",
+      fundo: reinoAnoesImg,
+      limparAntes: true,
+      texto: "Assim que chegam…\n\nO enorme portão de pedra está parcialmente destruído.\nVários esqueletos invadem o reino.",
+    },
+    {
+      id: "anoes_combate_1",
+      fundo: reinoAnoesImg,
+      tipo: "combate",
+      inimigoTipo: "esqueleto",
+      texto: "Você avança para enfrentar os esqueletos invasores.",
+    },
+    {
+      id: "anoes_combate_2",
+      fundo: reinoAnoesImg,
+      tipo: "combate",
+      inimigoTipo: "esqueleto",
+      texto: "Mais um esqueleto surge das ruínas do portão.",
+    },
+    {
+      id: "anoes_combate_3",
+      fundo: reinoAnoesImg,
+      tipo: "combate",
+      inimigoTipo: "esqueleto",
+      texto: "O terceiro esqueleto ataca sem hesitar.",
+    },
+    {
+      id: "anoes_combate_4",
+      fundo: reinoAnoesImg,
+      limparAntes: true,
+      texto: "Logo depois, mais dois esqueletos aparecem para reforçar o ataque.",
+    },
+    {
+      id: "anoes_combate_4",
+      fundo: reinoAnoesImg,
+      tipo: "combate",
+      inimigoTipo: "esqueleto",
+      texto: "Um quarto esqueleto entra em combate.",
+    },
+    {
+      id: "anoes_combate_5",
+      fundo: reinoAnoesImg,
+      tipo: "combate",
+      inimigoTipo: "esqueleto",
+      texto: "O quinto e último esqueleto desta onda ataca.",
+    },
+    {
+      id: "ogro_boss",
+      fundo: reinoAnoesImg,
+      limparAntes: true,
+      texto: "Quando tudo parece terminar…\num rugido sacode as pedras do reino.",
+    },
+    {
+      id: "ogro_boss",
+      fundo: reinoAnoesImg,
+      tipo: "combate",
+      inimigoTipo: "ogro",
+      texto: "Um Ogro surge entre os destroços do portão!",
+    },
+    {
+      id: "pos_ogro",
+      fundo: anaoImg,
+      limparAntes: true,
+      texto: "Um dos esqueletos derrotados deixou cair suprimentos.\nVocê recebe 3 poções de cura.",
+      recompensa: { itemId: "pocao_cura", quantidade: 3, mensagem: "Você recebeu 3 poções de cura." },
+    },
+    {
+      id: "pos_ogro",
+      fundo: anaoImg,
+      falante: "Anão",
+      limparAntes: true,
+      texto: "Conseguimos…\nEles finalmente recuaram…",
+    },
+    {
+      id: "pos_ogro",
+      fundo: anaoImg,
+      falante: "Taylor",
+      limparAntes: true,
+      texto: "Ainda não.\nIsso foi apenas uma pequena parte do exército.",
+    },
+    {
+      id: "pos_ogro",
+      fundo: anaoImg,
+      falante: "Anão",
+      limparAntes: true,
+      texto: "Obrigado aventureiros.\nInfelizmente…\nperdemos nossas minas.",
+    },
+    {
+      id: "pos_ogro",
+      fundo: anaoImg,
+      falante: nome,
+      limparAntes: true,
+      texto: "Agora precisamos seguir até Yingdad.\nAinda há tempo de salvar os elfos.",
+    },
+
+    // ── CENA 09 — REINO DOS ELFOS ──────────────────────────────────────────
+    {
+      id: "elfos_chegada",
+      fundo: reinoElfosImg,
+      limparAntes: true,
+      texto: "Assim que chegam…\n\nOs guardas apontam suas lanças.",
+    },
+    {
+      id: "elfos_chegada",
+      fundo: reinoElfosImg,
+      falante: "Princesa Gabriela",
+      limparAntes: true,
+      texto: "Esperem!\nEles salvaram minha vida.",
+    },
+    {
+      id: "elfos_guardas",
+      fundo: reinoElfosImg,
+      limparAntes: true,
+      texto: "Os guardas abaixam as armas.",
+    },
+    {
+      id: "elfos_rainha",
+      fundo: reinoElfosImg,
+      falante: "Rainha Elfa",
+      limparAntes: true,
+      texto: "Minha filha…",
+    },
+    {
+      id: "elfos_rainha",
+      fundo: reinoElfosImg,
+      limparAntes: true,
+      texto: "Princesa abraça a rainha.",
+    },
+    {
+      id: "elfos_rainha",
+      fundo: reinoElfosImg,
+      falante: "Rainha Elfa",
+      limparAntes: true,
+      texto: "Jamais conseguirei agradecer.\nAceite esta arma.",
+    },
+    {
+      id: "escolha_arma",
+      fundo: reinoElfosImg,
+      texto:
+        classe === "mago"
+          ? "A rainha entrega um Cajado Élfico. (+8 de magia)"
+          : classe === "guerreiro"
+          ? "A rainha entrega uma Espada Élfica. (+8 de ataque)"
+          : "A rainha entrega uma Adaga Élfica. (+8 de ataque)",
+    },
+    {
+      id: "elfos_rei_pergunta",
+      fundo: reinoElfosImg,
+      falante: nome,
+      limparAntes: true,
+      texto: "Mas… cadê o rei elfo?",
+    },
+    {
+      id: "elfos_explicacao",
+      fundo: reinoElfosImg,
+      limparAntes: true,
+      texto: "A rainha fica meio espantada e leva o grupo para longe dos guardas.",
+    },
+    {
+      id: "elfos_explicacao",
+      fundo: reinoElfosImg,
+      falante: "Rainha Elfa",
+      limparAntes: true,
+      texto: "Eu não sei o que tá acontecendo…\nDepois que os esqueletos levaram nosso povo, ele de alguma forma trouxe todos de volta.\nMas ele não parece ser mais o meu marido que eu conhecia.\nEle vive isolado naquele laboratório, e não deixa ninguém ver ele.",
+    },
+    {
+      id: "elfos_explicacao",
+      fundo: reinoElfosImg,
+      limparAntes: true,
+      texto: `Ao ouvir essas palavras, ${nome} parte na direção do laboratório em busca de mais pistas, eles não tinham mais tanto tempo, e quase nada fazia sentido ainda.`,
+    },
+
+    // ── CENA 10 — LABORATÓRIO ──────────────────────────────────────────────
+    {
+      id: "laboratorio_entrada",
+      fundo: laboratorioImg,
+      limparAntes: true,
+      texto: "Enquanto procuram…\nO grupo encontra um laboratório escondido.",
+    },
+    {
+      id: "laboratorio_entrada",
+      fundo: laboratorioImg,
+      limparAntes: true,
+      texto: "Existem corpos.\nLivros.\nFrascos.\nMinérios.\nEsqueletos incompletos.",
+    },
+    {
+      id: "laboratorio_entrada",
+      fundo: laboratorioImg,
+      falante: nome,
+      limparAntes: true,
+      texto: "O que é este lugar…",
+    },
+    {
+      id: "rei_elfo_negro_boss",
+      fundo: reiElfoNegroImg,
+      limparAntes: true,
+      texto: "Surge o Rei Elfo Negro.",
+    },
+    {
+      id: "rei_elfo_negro_boss",
+      fundo: reiElfoNegroImg,
+      falante: "Rei Elfo Negro",
+      limparAntes: true,
+      texto: "Vocês chegaram tarde demais…",
+    },
+    {
+      id: "rei_elfo_negro_boss",
+      fundo: reiElfoNegroImg,
+      tipo: "combate",
+      inimigoTipo: "rei_elfo_negro",
+      texto: "O Rei Elfo Negro ataca!",
+    },
+    {
+      id: "pos_rei_elfo_negro",
+      fundo: reiElfoNegroImg,
+      limparAntes: true,
+      texto: "O rei cai.",
+    },
+    {
+      id: "pos_rei_elfo_negro",
+      fundo: reiElfoNegroImg,
+      falante: "Rei Elfo Negro",
+      limparAntes: true,
+      texto: "Melquior…\nVocê prometeu…\nSalvar meu povo…",
+    },
+    {
+      id: "pos_rei_elfo_negro",
+      fundo: reiElfoNegroImg,
+      falante: "Rei Elfo Negro",
+      limparAntes: true,
+      texto: "Mas…\nVocê me transformou…\nNisso…",
+    },
+    {
+      id: "pos_rei_elfo_negro",
+      fundo: reiElfoNegroImg,
+      limparAntes: true,
+      texto: "Ele morre.",
+    },
+
+    // ── CENA 11 — PLOT TWIST ────────────────────────────────────────────────
+    {
+      id: "plot_twist",
+      fundo: laboratorioImg,
+      limparAntes: true,
+      texto: "O corpo do rei começa a brilhar.\nUm círculo mágico aparece.",
+    },
+    {
+      id: "plot_twist",
+      fundo: melquiorImg,
+      limparAntes: true,
+      texto: "Melquior surge lentamente.",
+    },
+    {
+      id: "plot_twist",
+      fundo: melquiorImg,
+      falante: "Melquior",
+      limparAntes: true,
+      texto: "Excelente trabalho…",
+    },
+    {
+      id: "plot_twist",
+      fundo: melquiorImg,
+      falante: "Melquior",
+      limparAntes: true,
+      texto: "Você eliminou todos os obstáculos.\nEncontrou Taylor.\nProtegeu a princesa.\nAbriu caminho até este lugar.",
+    },
+    {
+      id: "plot_twist",
+      fundo: melquiorImg,
+      falante: nome,
+      limparAntes: true,
+      texto: "Foi…\nVocê?",
+    },
+    {
+      id: "plot_twist",
+      fundo: melquiorImg,
+      falante: "Melquior",
+      limparAntes: true,
+      texto: "Desde o início.",
+    },
+    {
+      id: "plot_twist",
+      fundo: melquiorImg,
+      falante: "Melquior",
+      limparAntes: true,
+      texto: "Precisava dos corpos humanos.\nPrecisava dos minérios dos anões.\nPrecisava do sangue da família real élfica.",
+    },
+    {
+      id: "plot_twist",
+      fundo: melquiorImg,
+      limparAntes: true,
+      texto: "Melquior tira um medalhão do bolso.\nDentro existe a fotografia de uma mulher.",
+    },
+    {
+      id: "plot_twist",
+      fundo: melquiorImg,
+      falante: "Melquior",
+      limparAntes: true,
+      texto: "Há vinte anos…\nEla morreu em meus braços.",
+    },
+    {
+      id: "plot_twist",
+      fundo: melquiorImg,
+      falante: "Melquior",
+      limparAntes: true,
+      texto: "Prometi…\nQue jamais perderia quem eu amo novamente.\nMesmo que todo este mundo precisasse desaparecer.",
+    },
+    {
+      id: "plot_twist",
+      fundo: melquiorImg,
+      falante: "Taylor",
+      limparAntes: true,
+      texto: "Seu maldito…",
+    },
+
+    // ── CENA 12 — BOSS FINAL ────────────────────────────────────────────────
+    {
+      id: "boss_final_intro",
+      fundo: bossLichImg,
+      limparAntes: true,
+      texto: "O laboratório inteiro começa a tremer.\nUma enorme barreira envolve todo o reino élfico.",
+    },
+    {
+      id: "boss_final_intro",
+      fundo: bossLichImg,
+      limparAntes: true,
+      texto: "Melquior ergue seu cajado.\nSua aparência começa a mudar.",
+    },
+    {
+      id: "boss_final_intro",
+      fundo: bossLichImg,
+      falante: "Melquior",
+      limparAntes: true,
+      texto: "Chegou ao fim…\nAventureiro.",
+    },
+    {
+      id: "lich_boss",
+      fundo: bossLichImg,
+      tipo: "combate",
+      inimigoTipo: "lich",
+      texto: "O Lich ataca com toda sua magia sombria!",
+    },
+
+    // ── CENA FINAL ──────────────────────────────────────────────────────────
+    {
+      id: "cena_final",
+      fundo: bossLichImg,
+      limparAntes: true,
+      texto: "Melquior cai lentamente.\nO medalhão escapa de sua mão.\nEle olha pela última vez para a fotografia.",
+    },
+    {
+      id: "cena_final",
+      fundo: bossLichImg,
+      falante: "Melquior",
+      limparAntes: true,
+      texto: "Desculpe…\nEu realmente tentei…",
+    },
+    {
+      id: "cena_final",
+      fundo: bossLichImg,
+      limparAntes: true,
+      texto: "Ele morre.",
+    },
+    {
+      id: "cena_final",
+      telaEscura: true,
+      limparAntes: true,
+      texto: "A barreira desaparece.\nOs esqueletos começam a cair um após o outro.",
+    },
+    {
+      id: "cena_final",
+      fundo: casteloImg,
+      falante: "Rei dos Humanos",
+      limparAntes: true,
+      texto: "Hoje…\nValedorn volta a conhecer a paz.",
+    },
+    {
+      id: "cena_final",
+      fundo: reinoElfosImg,
+      falante: "Rainha Elfa",
+      limparAntes: true,
+      texto: "Jamais esqueceremos o que fez por nosso povo.",
+    },
+    {
+      id: "cena_final",
+      fundo: reinoAnoesImg,
+      falante: "Rei dos Anões",
+      limparAntes: true,
+      texto: "Nossa dívida será eterna.",
+    },
+    {
+      id: "cena_final",
+      fundo: taylorMachucadoImg,
+      falante: "Taylor",
+      limparAntes: true,
+      texto: "Finalmente…\nAcabou.",
     },
     {
       id: "fim_historia",
-      texto: "A jornada continua… (em breve)",
+      telaEscura: true,
+      limparAntes: true,
+      texto: "Obrigado por jogar.\nFIM.",
     },
   ];
 }
@@ -994,7 +1512,10 @@ function TelaHistoria({
   onFinish: (personagemAtualizado: Personagem) => void;
 }) {
   const [personagem, setPersonagem] = useState<Personagem>(personagemInicial);
-  const momentos = useMemo(() => montarHistoria(personagem.nome), [personagem.nome]);
+  const momentos = useMemo(
+    () => montarHistoria(personagem.nome, personagem.classe),
+    [personagem.nome, personagem.classe]
+  );
 
   const [indiceMomento, setIndiceMomento] = useState(0);
   const [digitacaoCompleta, setDigitacaoCompleta] = useState(false);
@@ -1010,7 +1531,7 @@ function TelaHistoria({
   const momento = momentos[indiceMomento];
   const textoExibido = respostaGuilda ?? momento.texto ?? "";
 
-  // Salva sempre que o personagem mudar
+  // Salva sempre que o personagem mudar (vida, xp, ouro, inventário, etc.)
   useEffect(() => {
     salvarPersonagem(personagem, slot);
   }, [personagem, slot]);
@@ -1042,14 +1563,27 @@ function TelaHistoria({
     return () => window.clearTimeout(timer);
   }, [indiceMomento, momento.duracaoAutomatica, avancarSequencial]);
 
-  // Aplica recompensa do momento atual (uma só vez)
+  // Aplica recompensa (item ou bônus de arma) do momento atual (uma só vez)
   const aplicarRecompensaAtual = useCallback(() => {
-    if (!momento.recompensa || recompensasAplicadas.current.has(indiceMomento)) return;
-    recompensasAplicadas.current.add(indiceMomento);
-    setPersonagem((p) =>
-      adicionarItem(p, momento.recompensa!.itemId, momento.recompensa!.quantidade)
-    );
-  }, [momento.recompensa, indiceMomento]);
+    if (recompensasAplicadas.current.has(indiceMomento)) return;
+
+    if (momento.recompensa) {
+      recompensasAplicadas.current.add(indiceMomento);
+      setPersonagem((p) =>
+        adicionarItem(p, momento.recompensa!.itemId, momento.recompensa!.quantidade)
+      );
+      return;
+    }
+
+    // Bônus de arma élfica (cena 09), aplicado de acordo com a classe do jogador
+    if (momento.id === "escolha_arma") {
+      recompensasAplicadas.current.add(indiceMomento);
+      setPersonagem((p) => {
+        const atributo: AtributoDistribuivel = p.classe === "mago" ? "magia" : "ataque";
+        return { ...p, stats: { ...p.stats, [atributo]: p.stats[atributo] + 8 } };
+      });
+    }
+  }, [momento, indiceMomento]);
 
   const concluirDigitacao = useCallback(() => setDigitacaoCompleta(true), []);
 
@@ -1117,9 +1651,10 @@ function TelaHistoria({
     irPara("vila_entrada", indiceMomento);
   };
 
-  // Vitória em combate da história
-  const aoVencerCombate = (personagemAtualizado: Personagem) => {
-    setPersonagem(personagemAtualizado);
+  // Vitória em combate da história — recebe o personagem já atualizado (com
+  // vida atual, xp, ouro e inventário corretos) e a vida atual após a vitória.
+  const aoVencerCombate = (personagemAtualizado: Personagem, novaVida: number) => {
+    setPersonagem({ ...personagemAtualizado, vidaAtual: novaVida });
     avancarSequencial();
   };
 
@@ -1258,7 +1793,7 @@ function CombateHistoria({
   inimigoTipo: TipoInimigo;
   indiceGoblin: number;
   recompensa?: Recompensa;
-  onVencer: (personagemAtualizado: Personagem) => void;
+  onVencer: (personagemAtualizado: Personagem, novaVida: number) => void;
   onMorrer: () => void;
 }) {
   const inimigo = useMemo(
@@ -1274,7 +1809,7 @@ function CombateHistoria({
       encontroInicial={inimigo}
       modoHistoria
       recompensaVitoria={recompensa}
-      onBack={() => onVencer(personagem)}
+      onBack={() => onVencer(personagem, personagem.vidaAtual ?? personagem.stats.vida)}
       onDeath={onMorrer}
       onVictory={onVencer}
     />
@@ -1308,7 +1843,7 @@ function TelaCombate({
   encontroInicial?: Inimigo;
   modoHistoria?: boolean;
   recompensaVitoria?: Recompensa;
-  onVictory?: (personagemAtualizado: Personagem) => void;
+  onVictory?: (personagemAtualizado: Personagem, novaVida: number) => void;
 }) {
   const inimigoInicial = useMemo(
     () => encontroInicial ?? criarInimigoAleatorio(personagemProp.progresso.nivel),
@@ -1321,7 +1856,11 @@ function TelaCombate({
     criarInimigoEmCombate(inimigoInicial),
   ]);
   const [alvoSelecionado, setAlvoSelecionado] = useState(0);
-  const [vidaPlayer, setVidaPlayer] = useState(personagemProp.stats.vida);
+  // a vida atual sempre parte do que está salvo no personagem — só é restaurada
+  // a 100% quando o jogador sobe de nível (ver lógica de vitória mais abaixo).
+  const [vidaPlayer, setVidaPlayer] = useState(
+    personagemProp.vidaAtual ?? personagemProp.stats.vida
+  );
   const [log, setLog] = useState<string[]>([
     `${personagemProp.nome} encontrou ${inimigoInicial.nome} Lv.${inimigoInicial.nivel}.`,
   ]);
@@ -1331,16 +1870,39 @@ function TelaCombate({
   const [mostraItens, setMostraItens] = useState(false);
   const [modalNivel, setModalNivel] = useState(false);
   const [niveisPendentes, setNiveisPendentes] = useState(0);
+  // vitória da história aguardando o fechamento do modal de nível (se houver)
+  const [vitoriaPendente, setVitoriaPendente] = useState<{
+    personagem: Personagem;
+    vida: number;
+  } | null>(null);
 
   const alvoAtual = inimigosAtivos[alvoSelecionado] ?? inimigosAtivos[0];
   const combateEncerrado = inimigosAtivos.length === 0;
   const chanceFuga = Math.max(5, CHANCE_FUGA_BASE - penalidadeFuga);
   const acaoDesabilitada = vidaPlayer <= 0 || combateEncerrado || modalNivel;
 
+  // Mantém a vida atual sincronizada no personagem (para persistir corretamente)
+  useEffect(() => {
+    setPlayer((p) => (p.vidaAtual === vidaPlayer ? p : { ...p, vidaAtual: vidaPlayer }));
+  }, [vidaPlayer]);
+
   // Salva sempre que o player mudar
   useEffect(() => {
     salvarPersonagem(player, slot);
   }, [player, slot]);
+
+  // Só avança a história depois que o modal de nível (se aberto) for confirmado.
+  // Isso evita que a tela de distribuição de pontos seja fechada à força antes
+  // do jogador terminar de gastar os pontos.
+  useEffect(() => {
+    if (!vitoriaPendente || modalNivel) return;
+    const t = window.setTimeout(() => {
+      onVictory?.(vitoriaPendente.personagem, vitoriaPendente.vida);
+      setVitoriaPendente(null);
+    }, 900);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vitoriaPendente, modalNivel]);
 
   const adicionarLog = (mensagem: string) =>
     setLog((l) => [mensagem, ...l]);
@@ -1494,14 +2056,16 @@ function TelaCombate({
       const { personagem: playerComXp, niveisGanhos } = aplicarXp(playerComOuro, xpGanho);
 
       let playerFinal = playerComXp;
+      // vida que o jogador terá depois deste combate: por padrão continua
+      // exatamente como estava (não volta cheia à toa); só é restaurada a
+      // 100% quando o jogador sobe de nível.
+      let vidaResultante = vidaPlayer;
 
       if (niveisGanhos > 0) {
-        const vidaPerdida = Math.max(0, playerFinal.stats.vida - vidaPlayer);
-        const vidaRestaurada = Math.ceil(vidaPerdida * 0.5);
-        const novaVidaPlayer = Math.min(playerFinal.stats.vida, vidaPlayer + vidaRestaurada);
-        setVidaPlayer(novaVidaPlayer);
+        vidaResultante = playerFinal.stats.vida;
+        setVidaPlayer(vidaResultante);
         adicionarLog(
-          `Subiu de nível! ${playerFinal.nome} restaurou ${vidaRestaurada} de vida.`
+          `Subiu de nível! ${playerFinal.nome} teve a vida totalmente restaurada.`
         );
         setNiveisPendentes((n) => n + niveisGanhos);
         setModalNivel(true);
@@ -1523,7 +2087,10 @@ function TelaCombate({
             );
             adicionarLog(recompensaVitoria.mensagem);
           }
-          window.setTimeout(() => onVictory?.(personagemVitorioso), 900);
+          personagemVitorioso = { ...personagemVitorioso, vidaAtual: vidaResultante };
+          // Só dispara a transição de fato quando não houver modal de nível
+          // pendente (ver useEffect de vitoriaPendente acima).
+          setVitoriaPendente({ personagem: personagemVitorioso, vida: vidaResultante });
         }
 
         return vivos;
@@ -1662,10 +2229,8 @@ function TelaCombate({
             }));
           }}
           fechar={() => {
-            if (player.progresso.pontosStatus <= 0) {
-              setModalNivel(false);
-              setNiveisPendentes(0);
-            }
+            setModalNivel(false);
+            setNiveisPendentes(0);
           }}
         />
       )}
@@ -1868,6 +2433,7 @@ function CriarPersonagem({
       nome: nome.trim(),
       classe,
       stats: { ...classeAtual.base },
+      vidaAtual: classeAtual.base.vida,
       habilidade: classeAtual.habilidade,
       magiaNome: classeAtual.magiaNome,
       imagem: classeAtual.imagem,
